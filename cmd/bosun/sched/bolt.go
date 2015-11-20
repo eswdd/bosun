@@ -150,58 +150,59 @@ func (s *Schedule) RestoreState() error {
 	if err := decode(db, dbStatus, &status); err != nil {
 		slog.Errorln(dbStatus, err)
 	}
-	clear := func(r *Result) {
-		if r == nil {
-			return
-		}
-		r.Computations = nil
-	}
-	for ak, st := range status {
-		a, present := s.Conf.Alerts[ak.Name()]
-		if !present {
-			slog.Errorln("sched: alert no longer present, ignoring:", ak)
-			continue
-		} else if s.Conf.Squelched(a, st.Group) {
-			slog.Infoln("sched: alert now squelched:", ak)
-			continue
-		} else {
-			t := a.Unknown
-			if t == 0 {
-				t = s.Conf.CheckFrequency
-			}
-			if t == 0 && st.Last().Status == StUnknown {
-				st.Append(&Event{Status: StNormal, IncidentId: st.Last().IncidentId})
-			}
-		}
-		clear(st.Result)
-		newHistory := []Event{}
-		for _, e := range st.History {
-			clear(e.Warn)
-			clear(e.Crit)
-			// Remove error events which no longer are a thing.
-			if e.Status <= StUnknown {
-				newHistory = append(newHistory, e)
-			}
-		}
-		st.History = newHistory
-		s.status[ak] = st
-		if a.Log && st.Open {
-			st.Open = false
-			slog.Infof("sched: alert %s is now log, closing, was %s", ak, st.Status())
-		}
-		for name, t := range notifications[ak] {
-			n, present := s.Conf.Notifications[name]
-			if !present {
-				slog.Infoln("sched: notification not present during restore:", name)
-				continue
-			}
-			if a.Log {
-				slog.Infoln("sched: alert is now log, removing notification:", ak)
-				continue
-			}
-			s.AddNotification(ak, n, t)
-		}
-	}
+	//	clear := func(r *models.Result) {
+	//		if r == nil {
+	//			return
+	//		}
+	//		r.Computations = nil
+	//}
+	//TODO: ???
+	//	for ak, st := range status {
+	//		a, present := s.Conf.Alerts[ak.Name()]
+	//		if !present {
+	//			slog.Errorln("sched: alert no longer present, ignoring:", ak)
+	//			continue
+	//		} else if s.Conf.Squelched(a, st.Group) {
+	//			slog.Infoln("sched: alert now squelched:", ak)
+	//			continue
+	//		} else {
+	//			t := a.Unknown
+	//			if t == 0 {
+	//				t = s.Conf.CheckFrequency
+	//			}
+	//			if t == 0 && st.Last().Status == StUnknown {
+	//				st.Append(&Event{Status: StNormal, IncidentId: st.Last().IncidentId})
+	//			}
+	//		}
+	//		clear(st.Result)
+	//		newHistory := []Event{}
+	//		for _, e := range st.History {
+	//			clear(e.Warn)
+	//			clear(e.Crit)
+	//			// Remove error events which no longer are a thing.
+	//			if e.Status <= StUnknown {
+	//				newHistory = append(newHistory, e)
+	//			}
+	//		}
+	//		st.History = newHistory
+	//		s.status[ak] = st
+	//		if a.Log && st.Open {
+	//			st.Open = false
+	//			slog.Infof("sched: alert %s is now log, closing, was %s", ak, st.Status())
+	//		}
+	//		for name, t := range notifications[ak] {
+	//			n, present := s.Conf.Notifications[name]
+	//			if !present {
+	//				slog.Infoln("sched: notification not present during restore:", name)
+	//				continue
+	//			}
+	//			if a.Log {
+	//				slog.Infoln("sched: alert is now log, removing notification:", ak)
+	//				continue
+	//			}
+	//			s.AddNotification(ak, n, t)
+	//		}
+	//	}
 	migrateOldDataToRedis(db, s.DataAccess)
 	// delete metrictags if they exist.
 	deleteKey(s.db, "metrictags")

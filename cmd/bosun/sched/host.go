@@ -603,13 +603,13 @@ func processHostIncidents(host *HostData, states States, silences map[models.Ale
 		is := IncidentStatus{
 			IncidentID:         state.Last().IncidentId,
 			Active:             state.IsActive(),
-			AlertKey:           state.AlertKey(),
-			Status:             state.Status(),
+			AlertKey:           state.AlertKey,
+			Status:             state.CurrentStatus,
 			StatusTime:         state.Last().Time.Unix(),
 			Subject:            state.Subject,
 			Silenced:           silenced,
-			LastAbnormalStatus: state.AbnormalStatus(),
-			LastAbnormalTime:   state.AbnormalEvent().Time.Unix(),
+			LastAbnormalStatus: state.LastAbnormalStatus,
+			LastAbnormalTime:   state.LastAbnormalTime,
 			NeedsAck:           state.NeedAck,
 		}
 		host.OpenIncidents = append(host.OpenIncidents, is)

@@ -23,22 +23,22 @@ import (
 )
 
 type Context struct {
-	*State
+	*models.IncidentState
 	Alert   *conf.Alert
 	IsEmail bool
 
 	schedule    *Schedule
 	runHistory  *RunHistory
-	Attachments []*conf.Attachment
+	Attachments []*models.Attachment
 }
 
-func (s *Schedule) Data(rh *RunHistory, st *State, a *conf.Alert, isEmail bool) *Context {
+func (s *Schedule) Data(rh *RunHistory, st *models.IncidentState, a *conf.Alert, isEmail bool) *Context {
 	c := Context{
-		State:      st,
-		Alert:      a,
-		IsEmail:    isEmail,
-		schedule:   s,
-		runHistory: rh,
+		IncidentState: st,
+		Alert:         a,
+		IsEmail:       isEmail,
+		schedule:      s,
+		runHistory:    rh,
 	}
 	return &c
 }
@@ -64,7 +64,7 @@ func (s *Schedule) unknownData(t time.Time, name string, group models.AlertKeys)
 func (c *Context) Ack() string {
 	return c.schedule.Conf.MakeLink("/action", &url.Values{
 		"type": []string{"ack"},
-		"key":  []string{c.Alert.Name + c.State.Group.String()},
+		"key":  []string{c.Alert.Name + c.Group.String()},
 	})
 }
 
@@ -109,11 +109,11 @@ func (c *Context) Rule() (string, error) {
 
 func (c *Context) Incident() string {
 	return c.schedule.Conf.MakeLink("/incident", &url.Values{
-		"id": []string{fmt.Sprint(c.State.Last().IncidentId)},
+		"id": []string{fmt.Sprint(c.Last().IncidentId)},
 	})
 }
 
-func (s *Schedule) ExecuteBody(rh *RunHistory, a *conf.Alert, st *State, isEmail bool) ([]byte, []*conf.Attachment, error) {
+func (s *Schedule) ExecuteBody(rh *RunHistory, a *conf.Alert, st *models.IncidentState, isEmail bool) ([]byte, []*models.Attachment, error) {
 	t := a.Template
 	if t == nil || t.Body == nil {
 		return nil, nil, nil
@@ -131,7 +131,7 @@ func (s *Schedule) ExecuteBody(rh *RunHistory, a *conf.Alert, st *State, isEmail
 	return buf.Bytes(), c.Attachments, nil
 }
 
-func (s *Schedule) ExecuteSubject(rh *RunHistory, a *conf.Alert, st *State, isEmail bool) ([]byte, error) {
+func (s *Schedule) ExecuteSubject(rh *RunHistory, a *conf.Alert, st *models.IncidentState, isEmail bool) ([]byte, error) {
 	t := a.Template
 	if t == nil || t.Subject == nil {
 		return nil, nil
@@ -165,8 +165,8 @@ var error_body = template.Must(template.New("body_error_template").Parse(`
 		</tr>
 	{{end}}</table>`))
 
-func (s *Schedule) ExecuteBadTemplate(errs []error, rh *RunHistory, a *conf.Alert, st *State) (subject, body []byte, err error) {
-	sub := fmt.Sprintf("error: template rendering error for alert %v", st.AlertKey())
+func (s *Schedule) ExecuteBadTemplate(errs []error, rh *RunHistory, a *conf.Alert, st *models.IncidentState) (subject, body []byte, err error) {
+	sub := fmt.Sprintf("error: template rendering error for alert %v", st.AlertKey)
 	c := struct {
 		Errors []error
 		*Context
@@ -182,7 +182,7 @@ func (s *Schedule) ExecuteBadTemplate(errs []error, rh *RunHistory, a *conf.Aler
 func (c *Context) evalExpr(e *expr.Expr, filter bool, series bool, autods int) (expr.ResultSlice, string, error) {
 	var err error
 	if filter {
-		e, err = expr.New(opentsdb.ReplaceTags(e.Text, c.State.Group), c.schedule.Conf.Funcs())
+		e, err = expr.New(opentsdb.ReplaceTags(e.Text, c.Group), c.schedule.Conf.Funcs())
 		if err != nil {
 			return nil, "", err
 		}
@@ -217,7 +217,7 @@ func (c *Context) eval(v interface{}, filter bool, series bool, autods int) (res
 		return nil, "", fmt.Errorf("expected string, expression or resultslice, got %T (%v)", v, v)
 	}
 	if filter {
-		res = res.Filter(c.State.Group)
+		res = res.Filter(c.Group)
 	}
 	if series {
 		for _, k := range res {
@@ -301,7 +301,7 @@ func (c *Context) graph(v interface{}, unit string, filter bool) (val interface{
 			return nil, err
 		}
 		name := fmt.Sprintf("%d.png", len(c.Attachments)+1)
-		c.Attachments = append(c.Attachments, &conf.Attachment{
+		c.Attachments = append(c.Attachments, &models.Attachment{
 			Data:        buf.Bytes(),
 			Filename:    name,
 			ContentType: "image/png",
@@ -495,10 +495,10 @@ func (c *Context) LSQueryAll(index_root, keystring, filter, sduration, eduration
 }
 
 type actionNotificationContext struct {
-	States     []*State
+	States     []*models.IncidentState
 	User       string
 	Message    string
-	ActionType ActionType
+	ActionType models.ActionType
 
 	schedule *Schedule
 }

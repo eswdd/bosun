@@ -29,9 +29,9 @@ func (s *Schedule) dispatchNotifications() {
 
 }
 
-func (s *Schedule) Notify(st *State, n *conf.Notification) {
+func (s *Schedule) Notify(st *models.IncidentState, n *conf.Notification) {
 	if s.pendingNotifications == nil {
-		s.pendingNotifications = make(map[*conf.Notification][]*State)
+		s.pendingNotifications = make(map[*conf.Notification][]*models.IncidentState)
 	}
 	s.pendingNotifications[n] = append(s.pendingNotifications[n], st)
 }
@@ -98,9 +98,9 @@ func (s *Schedule) sendNotifications(silenced map[models.AlertKey]Silence) {
 	}
 	for n, states := range s.pendingNotifications {
 		for _, st := range states {
-			ak := st.AlertKey()
+			ak := st.AlertKey
 			_, silenced := silenced[ak]
-			if st.Last().Status == StUnknown {
+			if st.CurrentStatus == models.StUnknown {
 				if silenced {
 					slog.Infoln("silencing unknown", ak)
 					continue
@@ -124,7 +124,7 @@ func (s *Schedule) sendUnknownNotifications() {
 	for n, states := range s.pendingUnknowns {
 		ustates := make(States)
 		for _, st := range states {
-			ustates[st.AlertKey()] = st
+			ustates[st.AlertKey] = st
 		}
 		var c int
 		tHit := false
@@ -148,7 +148,7 @@ func (s *Schedule) sendUnknownNotifications() {
 			s.utnotify(oTSets, n)
 		}
 	}
-	s.pendingUnknowns = make(map[*conf.Notification][]*State)
+	s.pendingUnknowns = make(map[*conf.Notification][]*models.IncidentState)
 }
 
 var unknownMultiGroup = ttemplate.Must(ttemplate.New("unknownMultiGroup").Parse(`
@@ -168,8 +168,8 @@ var unknownMultiGroup = ttemplate.Must(ttemplate.New("unknownMultiGroup").Parse(
 	</ul>
 	`))
 
-func (s *Schedule) notify(st *State, n *conf.Notification) {
-	n.Notify(st.Subject, st.Body, st.EmailSubject, st.EmailBody, s.Conf, string(st.AlertKey()), st.Attachments...)
+func (s *Schedule) notify(st *models.IncidentState, n *conf.Notification) {
+	n.Notify(st.Subject, st.Body, st.EmailSubject, st.EmailBody, s.Conf, string(st.AlertKey), st.Attachments...)
 }
 
 // utnotify is single notification for N unknown groups into a single notification
@@ -264,11 +264,11 @@ func init() {
 	actionNotificationBodyTemplate = htemplate.Must(htemplate.New("").Parse(body))
 }
 
-func (s *Schedule) ActionNotify(at ActionType, user, message string, aks []models.AlertKey) {
+func (s *Schedule) ActionNotify(at models.ActionType, user, message string, aks []models.AlertKey) {
 	groupings := s.groupActionNotifications(aks)
 
 	for notification, states := range groupings {
-		incidents := []*State{}
+		incidents := []*models.IncidentState{}
 		for _, state := range states {
 			incidents = append(incidents, state)
 		}
@@ -291,30 +291,31 @@ func (s *Schedule) ActionNotify(at ActionType, user, message string, aks []model
 	}
 }
 
-func (s *Schedule) groupActionNotifications(aks []models.AlertKey) map[*conf.Notification][]*State {
-	groupings := make(map[*conf.Notification][]*State)
-	for _, ak := range aks {
-		alert := s.Conf.Alerts[ak.Name()]
-		status := s.GetStatus(ak)
-		if alert == nil || status == nil {
-			continue
-		}
-		var n *conf.Notifications
-		if status.Status() == StWarning {
-			n = alert.WarnNotification
-		} else {
-			n = alert.CritNotification
-		}
-		if n == nil {
-			continue
-		}
-		nots := n.Get(s.Conf, ak.Group())
-		for _, not := range nots {
-			if !not.RunOnActions {
-				continue
-			}
-			groupings[not] = append(groupings[not], status)
-		}
-	}
+func (s *Schedule) groupActionNotifications(aks []models.AlertKey) map[*conf.Notification][]*models.IncidentState {
+	groupings := make(map[*conf.Notification][]*models.IncidentState)
+	//TODO:
+	//	for _, ak := range aks {
+	//		alert := s.Conf.Alerts[ak.Name()]
+	//		status := s.GetStatus(ak)
+	//		if alert == nil || status == nil {
+	//			continue
+	//		}
+	//		var n *conf.Notifications
+	//		if status.Status() == models.StWarning {
+	//			n = alert.WarnNotification
+	//		} else {
+	//			n = alert.CritNotification
+	//		}
+	//		if n == nil {
+	//			continue
+	//		}
+	//		nots := n.Get(s.Conf, ak.Group())
+	//		for _, not := range nots {
+	//			if !not.RunOnActions {
+	//				continue
+	//			}
+	//			groupings[not] = append(groupings[not], status)
+	//		}
+	//	}
 	return groupings
 }
