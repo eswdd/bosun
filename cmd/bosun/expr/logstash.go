@@ -10,6 +10,7 @@ import (
 	"bosun.org/_third_party/github.com/MiniProfiler/go/miniprofiler"
 	"bosun.org/_third_party/github.com/olivere/elastic"
 	"bosun.org/cmd/bosun/expr/parse"
+	"bosun.org/models"
 	"bosun.org/opentsdb"
 )
 
@@ -20,14 +21,14 @@ var lsClient *elastic.Client
 // logstash. They are only loaded when the elastic hosts are set in the config file
 var LogstashElastic = map[string]parse.Func{
 	"lscount": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   logstashTagQuery,
 		F:      LSCount,
 	},
 	"lsstat": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   logstashTagQuery,
 		F:      LSStat,
 	},
@@ -230,7 +231,7 @@ func LSDateHistogram(e *State, T miniprofiler.Timer, index_root, keystring, filt
 		if len(series) == 0 {
 			return r, nil
 		}
-		r.Results = append(r.Results, &Result{
+		r.Results = append(r.Results, &models.ExpressionResult{
 			Value: series,
 			Group: make(opentsdb.TagSet),
 		})
@@ -267,7 +268,7 @@ func LSDateHistogram(e *State, T miniprofiler.Timer, index_root, keystring, filt
 			if len(series) == 0 {
 				return nil
 			}
-			r.Results = append(r.Results, &Result{
+			r.Results = append(r.Results, &models.ExpressionResult{
 				Value: series,
 				Group: tags.Copy(),
 			})

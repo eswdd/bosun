@@ -242,7 +242,7 @@ type Alert struct {
 	UnjoinedOK       bool `json:",omitempty"`
 	Log              bool
 	RunEvery         int
-	returnType       eparse.FuncType
+	returnType       models.FuncType
 
 	template string
 	squelch  []string
@@ -914,7 +914,7 @@ func (c *Conf) loadAlert(s *parse.SectionNode) {
 		c.errorf("neither crit or warn specified")
 	}
 	var tags eparse.Tags
-	var ret eparse.FuncType
+	var ret models.FuncType
 	if a.Crit != nil {
 		ctags, err := a.Crit.Root.Tags()
 		if err != nil {
@@ -1166,7 +1166,7 @@ func (c *Conf) NewExpr(s string) *expr.Expr {
 		c.error(err)
 	}
 	switch exp.Root.Return() {
-	case eparse.TypeNumberSet, eparse.TypeScalar:
+	case models.TypeNumberSet, models.TypeScalar:
 		break
 	default:
 		c.errorf("expression must return a number")
@@ -1216,7 +1216,7 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 			if err != nil {
 				return nil, err
 			}
-			results.Results = append(results.Results, &expr.Result{
+			results.Results = append(results.Results, &models.ExpressionResult{
 				Value: expr.Number(num),
 				Group: tag,
 			})
@@ -1245,7 +1245,7 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 			if err != nil {
 				return nil, err
 			}
-			results.Results = append(results.Results, &expr.Result{
+			results.Results = append(results.Results, &models.ExpressionResult{
 				Value: expr.Number(num),
 				Group: res.Group,
 			})
@@ -1284,7 +1284,7 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 		if err != nil {
 			return nil, err
 		}
-		if a.returnType != eparse.TypeNumberSet {
+		if a.returnType != models.TypeNumberSet {
 			return nil, fmt.Errorf("alert requires a number-returning expression (got %v)", a.returnType)
 		}
 		return e.Root.Tags()
@@ -1292,20 +1292,20 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 
 	funcs := map[string]eparse.Func{
 		"alert": {
-			Args:   []eparse.FuncType{eparse.TypeString, eparse.TypeString},
-			Return: eparse.TypeNumberSet,
+			Args:   []models.FuncType{models.TypeString, models.TypeString},
+			Return: models.TypeNumberSet,
 			Tags:   tagAlert,
 			F:      c.alert,
 		},
 		"lookup": {
-			Args:   []eparse.FuncType{eparse.TypeString, eparse.TypeString},
-			Return: eparse.TypeNumberSet,
+			Args:   []models.FuncType{models.TypeString, models.TypeString},
+			Return: models.TypeNumberSet,
 			Tags:   lookupTags,
 			F:      lookup,
 		},
 		"lookupSeries": {
-			Args:   []eparse.FuncType{eparse.TypeSeriesSet, eparse.TypeString, eparse.TypeString},
-			Return: eparse.TypeNumberSet,
+			Args:   []models.FuncType{models.TypeSeriesSet, models.TypeString, models.TypeString},
+			Return: models.TypeNumberSet,
 			Tags:   lookupSeriesTags,
 			F:      lookupSeries,
 		},
@@ -1371,7 +1371,7 @@ func (c *Conf) alert(s *expr.State, T miniprofiler.Timer, name, key string) (res
 				}
 			}
 			if !found {
-				res := expr.Result{
+				res := models.ExpressionResult{
 					Value: expr.Number(1),
 					Group: ak.Group(),
 				}
@@ -1389,7 +1389,7 @@ func (c *Conf) alert(s *expr.State, T miniprofiler.Timer, name, key string) (res
 				}
 			}
 			if !found {
-				res := expr.Result{
+				res := models.ExpressionResult{
 					Value: expr.Number(1),
 					Group: ak.Group(),
 				}

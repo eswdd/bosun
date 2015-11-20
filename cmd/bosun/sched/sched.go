@@ -784,12 +784,12 @@ type Event struct {
 }
 
 type Result struct {
-	*expr.Result
+	*models.ExpressionResult
 	Expr string
 }
 
 func (r *Result) Copy() *Result {
-	return &Result{r.Result, r.Expr}
+	return &Result{r.ExpressionResult, r.Expr}
 }
 
 type Status int

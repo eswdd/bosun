@@ -131,11 +131,6 @@ func errRecover(errp *error) {
 	}
 }
 
-type Value interface {
-	Type() parse.FuncType
-	Value() interface{}
-}
-
 func marshalFloat(n float64) ([]byte, error) {
 	if math.IsNaN(n) {
 		return json.Marshal("NaN")
@@ -149,21 +144,21 @@ func marshalFloat(n float64) ([]byte, error) {
 
 type Number float64
 
-func (n Number) Type() parse.FuncType         { return parse.TypeNumberSet }
+func (n Number) Type() models.FuncType        { return models.TypeNumberSet }
 func (n Number) Value() interface{}           { return n }
 func (n Number) MarshalJSON() ([]byte, error) { return marshalFloat(float64(n)) }
 
 type Scalar float64
 
-func (s Scalar) Type() parse.FuncType         { return parse.TypeScalar }
+func (s Scalar) Type() models.FuncType        { return models.TypeScalar }
 func (s Scalar) Value() interface{}           { return s }
 func (s Scalar) MarshalJSON() ([]byte, error) { return marshalFloat(float64(s)) }
 
 // Series is the standard form within bosun to represent timeseries data.
 type Series map[time.Time]float64
 
-func (s Series) Type() parse.FuncType { return parse.TypeSeriesSet }
-func (s Series) Value() interface{}   { return s }
+func (s Series) Type() models.FuncType { return models.TypeSeriesSet }
+func (s Series) Value() interface{}    { return s }
 
 func (s Series) MarshalJSON() ([]byte, error) {
 	r := make(map[string]interface{}, len(s))
@@ -196,12 +191,6 @@ func NewSortedSeries(dps Series) SortableSeries {
 	return series
 }
 
-type Result struct {
-	Computations
-	Value
-	Group opentsdb.TagSet
-}
-
 type Results struct {
 	Results ResultSlice
 	// If true, ungrouped joins from this set will be ignored.
@@ -212,7 +201,7 @@ type Results struct {
 	NaNValue *float64
 }
 
-type ResultSlice []*Result
+type ResultSlice []*models.ExpressionResult
 
 type ResultSliceByGroup ResultSlice
 
@@ -255,30 +244,23 @@ func (r ResultSliceByGroup) Len() int           { return len(r) }
 func (r ResultSliceByGroup) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (r ResultSliceByGroup) Less(i, j int) bool { return r[i].Group.String() < r[j].Group.String() }
 
-type Computations []Computation
-
-type Computation struct {
-	Text  string
-	Value interface{}
-}
-
-func (e *State) AddComputation(r *Result, text string, value interface{}) {
+func (e *State) AddComputation(r *models.ExpressionResult, text string, value interface{}) {
 	if !e.enableComputations {
 		return
 	}
-	r.Computations = append(r.Computations, Computation{opentsdb.ReplaceTags(text, r.Group), value})
+	r.Computations = append(r.Computations, models.Computation{opentsdb.ReplaceTags(text, r.Group), value})
 }
 
 type Union struct {
-	Computations
-	A, B  Value
+	models.Computations
+	A, B  models.Value
 	Group opentsdb.TagSet
 }
 
 // wrap creates a new Result with a nil group and given value.
 func wrap(v float64) *Results {
 	return &Results{
-		Results: []*Result{
+		Results: []*models.ExpressionResult{
 			{
 				Value: Scalar(v),
 				Group: nil,
@@ -287,7 +269,7 @@ func wrap(v float64) *Results {
 	}
 }
 
-func (u *Union) ExtendComputations(o *Result) {
+func (u *Union) ExtendComputations(o *models.ExpressionResult) {
 	u.Computations = append(u.Computations, o.Computations...)
 }
 
@@ -298,8 +280,8 @@ func (e *State) union(a, b *Results, expression string) []*Union {
 	if len(a.Results) == 0 || len(b.Results) == 0 {
 		return us
 	}
-	am := make(map[*Result]bool, len(a.Results))
-	bm := make(map[*Result]bool, len(b.Results))
+	am := make(map[*models.ExpressionResult]bool, len(a.Results))
+	bm := make(map[*models.ExpressionResult]bool, len(b.Results))
 	for _, ra := range a.Results {
 		am[ra] = true
 	}
@@ -393,8 +375,8 @@ func (e *State) walkBinary(node *parse.BinaryNode, T miniprofiler.Timer) *Result
 	T.Step("walkBinary: "+node.OpStr, func(T miniprofiler.Timer) {
 		u := e.union(ar, br, node.String())
 		for _, v := range u {
-			var value Value
-			r := &Result{
+			var value models.Value
+			r := &models.ExpressionResult{
 				Group:        v.Group,
 				Computations: v.Computations,
 			}
@@ -602,7 +584,7 @@ func (e *State) walkFunc(node *parse.FuncNode, T miniprofiler.Timer) *Results {
 			default:
 				panic(fmt.Errorf("expr: unknown func arg type"))
 			}
-			if f, ok := v.(float64); ok && node.F.Args[i] == parse.TypeNumberSet {
+			if f, ok := v.(float64); ok && node.F.Args[i] == models.TypeNumberSet {
 				v = fromScalar(f)
 			}
 			in = append(in, reflect.ValueOf(v))
@@ -616,7 +598,7 @@ func (e *State) walkFunc(node *parse.FuncNode, T miniprofiler.Timer) *Results {
 				panic(err)
 			}
 		}
-		if node.Return() == parse.TypeNumberSet {
+		if node.Return() == models.TypeNumberSet {
 			for _, r := range res.Results {
 				e.AddComputation(r, node.String(), r.Value.(Number))
 			}
@@ -627,7 +609,7 @@ func (e *State) walkFunc(node *parse.FuncNode, T miniprofiler.Timer) *Results {
 
 // extractScalar will return a float64 if res contains exactly one scalar.
 func extractScalar(res *Results) interface{} {
-	if len(res.Results) == 1 && res.Results[0].Type() == parse.TypeScalar {
+	if len(res.Results) == 1 && res.Results[0].Type() == models.TypeScalar {
 		return float64(res.Results[0].Value.Value().(Scalar))
 	}
 	return res

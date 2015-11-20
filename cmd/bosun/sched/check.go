@@ -629,8 +629,8 @@ Loop:
 			rh.Events[ak] = event
 		}
 		result := &Result{
-			Result: r,
-			Expr:   e.String(),
+			ExpressionResult: r,
+			Expr:             e.String(),
 		}
 		switch checkStatus {
 		case StWarning:

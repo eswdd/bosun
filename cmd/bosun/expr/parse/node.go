@@ -9,6 +9,8 @@ package parse
 import (
 	"fmt"
 	"strconv"
+
+	"bosun.org/models"
 )
 
 var textFormat = "%s" // Changed to "%q" in tests for better error messages.
@@ -22,7 +24,7 @@ type Node interface {
 	StringAST() string
 	Position() Pos     // byte position of start of node in full original input string
 	Check(*Tree) error // performs type checking for itself and sub-nodes
-	Return() FuncType
+	Return() models.FuncType
 	Tags() (Tags, error)
 	// Make sure only functions in this package can create Nodes.
 	unexported()
@@ -111,7 +113,7 @@ func (f *FuncNode) Check(t *Tree) error {
 	for i, a := range f.Args {
 		ft := f.F.Args[i]
 		at := a.Return()
-		if ft == TypeNumberSet && at == TypeScalar {
+		if ft == models.TypeNumberSet && at == models.TypeScalar {
 			// Scalars are promoted to NumberSets during execution.
 		} else if ft != at {
 			return fmt.Errorf("parse: expected %v, got %v", ft, at)
@@ -126,7 +128,7 @@ func (f *FuncNode) Check(t *Tree) error {
 	return nil
 }
 
-func (f *FuncNode) Return() FuncType {
+func (f *FuncNode) Return() models.FuncType {
 	return f.F.Return
 }
 
@@ -192,8 +194,8 @@ func (n *NumberNode) Check(*Tree) error {
 	return nil
 }
 
-func (n *NumberNode) Return() FuncType {
-	return TypeScalar
+func (n *NumberNode) Return() models.FuncType {
+	return models.TypeScalar
 }
 
 func (n *NumberNode) Tags() (Tags, error) {
@@ -224,8 +226,8 @@ func (s *StringNode) Check(*Tree) error {
 	return nil
 }
 
-func (s *StringNode) Return() FuncType {
-	return TypeString
+func (s *StringNode) Return() models.FuncType {
+	return models.TypeString
 }
 
 func (s *StringNode) Tags() (Tags, error) {
@@ -256,14 +258,14 @@ func (b *BinaryNode) StringAST() string {
 func (b *BinaryNode) Check(t *Tree) error {
 	t1 := b.Args[0].Return()
 	t2 := b.Args[1].Return()
-	if t1 == TypeSeriesSet && t2 == TypeSeriesSet {
+	if t1 == models.TypeSeriesSet && t2 == models.TypeSeriesSet {
 		return fmt.Errorf("parse: type error in %s: at least one side must be a number", b)
 	}
 	check := t1
-	if t1 == TypeSeriesSet {
+	if t1 == models.TypeSeriesSet {
 		check = t2
 	}
-	if check != TypeNumberSet && check != TypeScalar {
+	if check != models.TypeNumberSet && check != models.TypeScalar {
 		return fmt.Errorf("parse: type error in %s: expected a number", b)
 	}
 	if err := b.Args[0].Check(t); err != nil {
@@ -286,7 +288,7 @@ func (b *BinaryNode) Check(t *Tree) error {
 	return nil
 }
 
-func (b *BinaryNode) Return() FuncType {
+func (b *BinaryNode) Return() models.FuncType {
 	t0 := b.Args[0].Return()
 	t1 := b.Args[1].Return()
 	if t1 > t0 {
@@ -329,14 +331,14 @@ func (u *UnaryNode) StringAST() string {
 
 func (u *UnaryNode) Check(t *Tree) error {
 	switch rt := u.Arg.Return(); rt {
-	case TypeNumberSet, TypeSeriesSet, TypeScalar:
+	case models.TypeNumberSet, models.TypeSeriesSet, models.TypeScalar:
 		return u.Arg.Check(t)
 	default:
 		return fmt.Errorf("parse: type error in %s, expected %s, got %s", u, "number", rt)
 	}
 }
 
-func (u *UnaryNode) Return() FuncType {
+func (u *UnaryNode) Return() models.FuncType {
 	return u.Arg.Return()
 }
 

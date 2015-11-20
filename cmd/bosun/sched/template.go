@@ -17,7 +17,6 @@ import (
 	"bosun.org/_third_party/github.com/jmoiron/jsonq"
 	"bosun.org/cmd/bosun/conf"
 	"bosun.org/cmd/bosun/expr"
-	"bosun.org/cmd/bosun/expr/parse"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
@@ -188,7 +187,7 @@ func (c *Context) evalExpr(e *expr.Expr, filter bool, series bool, autods int) (
 			return nil, "", err
 		}
 	}
-	if series && e.Root.Return() != parse.TypeSeriesSet {
+	if series && e.Root.Return() != models.TypeSeriesSet {
 		return nil, "", fmt.Errorf("need a series, got %T (%v)", e, e)
 	}
 	res, _, err := e.Execute(c.runHistory.Context, c.runHistory.GraphiteContext, c.runHistory.Logstash, c.runHistory.InfluxConfig, c.runHistory.Cache, nil, c.runHistory.Start, autods, c.Alert.UnjoinedOK, c.schedule.Search, c.schedule.Conf.AlertSquelched(c.Alert), c.runHistory)
@@ -222,7 +221,7 @@ func (c *Context) eval(v interface{}, filter bool, series bool, autods int) (res
 	}
 	if series {
 		for _, k := range res {
-			if k.Type() != parse.TypeSeriesSet {
+			if k.Type() != models.TypeSeriesSet {
 				return nil, "", fmt.Errorf("need a series, got %v (%v)", k.Type(), k)
 			}
 		}
@@ -378,7 +377,7 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 	}
 	// temporarily store the results in a results[M][Ni] Result matrix:
 	// for M queries, tracks Ni results per each i'th query
-	results := make([][]*expr.Result, len(v))
+	results := make([][]*models.ExpressionResult, len(v))
 	for col, val := range v {
 		queryResults, _, err := c.eval(val, false, false, 0)
 		if err != nil {
@@ -389,9 +388,9 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 
 	// perform the joining by storing all results in a joined[N0][M] Result matrix:
 	// for N tagsets (based on first query results), tracks all M Results (results with matching group, from all other queries)
-	joined := make([][]*expr.Result, 0)
+	joined := make([][]*models.ExpressionResult, 0)
 	for row, firstQueryResult := range results[0] {
-		joined = append(joined, make([]*expr.Result, len(v)))
+		joined = append(joined, make([]*models.ExpressionResult, len(v)))
 		joined[row][0] = firstQueryResult
 		// join results of 2nd to M queries
 		for col, queryResults := range results[1:] {
@@ -401,7 +400,7 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 					break
 				}
 				// Fill emtpy cells with NaN Value, so calling .Value is not a nil pointer dereference
-				joined[row][col+1] = &expr.Result{Value: expr.Number(math.NaN())}
+				joined[row][col+1] = &models.ExpressionResult{Value: expr.Number(math.NaN())}
 			}
 		}
 	}

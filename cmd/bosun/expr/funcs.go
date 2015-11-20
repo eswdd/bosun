@@ -14,6 +14,7 @@ import (
 	"bosun.org/_third_party/github.com/MiniProfiler/go/miniprofiler"
 	"bosun.org/cmd/bosun/expr/parse"
 	"bosun.org/graphite"
+	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
 )
@@ -86,14 +87,14 @@ func tagRename(args []parse.Node) (parse.Tags, error) {
 // Graphite defines functions for use with a Graphite backend.
 var Graphite = map[string]parse.Func{
 	"graphiteBand": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeScalar},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeString, models.TypeScalar},
+		Return: models.TypeSeriesSet,
 		Tags:   graphiteTagQuery,
 		F:      GraphiteBand,
 	},
 	"graphite": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   graphiteTagQuery,
 		F:      GraphiteQuery,
 	},
@@ -102,31 +103,31 @@ var Graphite = map[string]parse.Func{
 // TSDB defines functions for use with an OpenTSDB backend.
 var TSDB = map[string]parse.Func{
 	"band": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeScalar},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeScalar},
+		Return: models.TypeSeriesSet,
 		Tags:   tagQuery,
 		F:      Band,
 	},
 	"change": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeNumberSet,
 		Tags:   tagQuery,
 		F:      Change,
 	},
 	"count": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeScalar,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeScalar,
 		F:      Count,
 	},
 	"q": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   tagQuery,
 		F:      Query,
 	},
 	"window": {
-		Args:   []parse.FuncType{parse.TypeString, parse.TypeString, parse.TypeString, parse.TypeScalar, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeString, models.TypeString, models.TypeString, models.TypeScalar, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   tagQuery,
 		F:      Window,
 		Check:  windowCheck,
@@ -137,191 +138,191 @@ var builtins = map[string]parse.Func{
 	// Reduction functions
 
 	"avg": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Avg,
 	},
 	"cCount": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      CCount,
 	},
 	"dev": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Dev,
 	},
 	"diff": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Diff,
 	},
 	"first": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      First,
 	},
 	"forecastlr": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Forecast_lr,
 	},
 	"last": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Last,
 	},
 	"len": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Length,
 	},
 	"max": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Max,
 	},
 	"median": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Median,
 	},
 	"min": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Min,
 	},
 	"percentile": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Percentile,
 	},
 	"since": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Since,
 	},
 	"sum": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Sum,
 	},
 	"streak": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Streak,
 	},
 
 	// Group functions
 	"rename": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   tagRename,
 		F:      Rename,
 	},
 
 	"t": {
-		Args:   []parse.FuncType{parse.TypeNumberSet, parse.TypeString},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeNumberSet, models.TypeString},
+		Return: models.TypeSeriesSet,
 		Tags:   tagTranspose,
 		F:      Transpose,
 	},
 	"ungroup": {
-		Args:   []parse.FuncType{parse.TypeNumberSet},
-		Return: parse.TypeScalar,
+		Args:   []models.FuncType{models.TypeNumberSet},
+		Return: models.TypeScalar,
 		F:      Ungroup,
 	},
 
 	// Other functions
 
 	"abs": {
-		Args:   []parse.FuncType{parse.TypeNumberSet},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeNumberSet},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Abs,
 	},
 	"d": {
-		Args:   []parse.FuncType{parse.TypeString},
-		Return: parse.TypeScalar,
+		Args:   []models.FuncType{models.TypeString},
+		Return: models.TypeScalar,
 		F:      Duration,
 	},
 	"des": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeScalar, parse.TypeScalar},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeScalar, models.TypeScalar},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      Des,
 	},
 	"dropge": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      DropGe,
 	},
 	"dropg": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      DropG,
 	},
 	"drople": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      DropLe,
 	},
 	"dropl": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      DropL,
 	},
 	"dropna": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      DropNA,
 	},
 	"epoch": {
-		Args:   []parse.FuncType{},
-		Return: parse.TypeScalar,
+		Args:   []models.FuncType{},
+		Return: models.TypeScalar,
 		F:      Epoch,
 	},
 	"filter": {
-		Args:   []parse.FuncType{parse.TypeSeriesSet, parse.TypeNumberSet},
-		Return: parse.TypeSeriesSet,
+		Args:   []models.FuncType{models.TypeSeriesSet, models.TypeNumberSet},
+		Return: models.TypeSeriesSet,
 		Tags:   tagFirst,
 		F:      Filter,
 	},
 	"limit": {
-		Args:   []parse.FuncType{parse.TypeNumberSet, parse.TypeScalar},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeNumberSet, models.TypeScalar},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Limit,
 	},
 	"nv": {
-		Args:   []parse.FuncType{parse.TypeNumberSet, parse.TypeScalar},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeNumberSet, models.TypeScalar},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      NV,
 	},
 	"sort": {
-		Args:   []parse.FuncType{parse.TypeNumberSet, parse.TypeString},
-		Return: parse.TypeNumberSet,
+		Args:   []models.FuncType{models.TypeNumberSet, models.TypeString},
+		Return: models.TypeNumberSet,
 		Tags:   tagFirst,
 		F:      Sort,
 	},
@@ -329,7 +330,7 @@ var builtins = map[string]parse.Func{
 
 func Epoch(e *State, T miniprofiler.Timer) (*Results, error) {
 	return &Results{
-		Results: []*Result{
+		Results: []*models.ExpressionResult{
 			{Value: Scalar(float64(e.now.Unix()))},
 		},
 	}, nil
@@ -383,14 +384,14 @@ func Duration(e *State, T miniprofiler.Timer, d string) (*Results, error) {
 		return nil, err
 	}
 	return &Results{
-		Results: []*Result{
+		Results: []*models.ExpressionResult{
 			{Value: Scalar(duration.Seconds())},
 		},
 	}, nil
 }
 
 func DropValues(e *State, T miniprofiler.Timer, series *Results, threshold *Results, dropFunction func(float64, float64) bool) (*Results, error) {
-	f := func(res *Results, s *Result, floats []float64) error {
+	f := func(res *Results, s *models.ExpressionResult, floats []float64) error {
 		nv := make(Series)
 		for k, v := range s.Value.Value().(Series) {
 			if !dropFunction(float64(v), floats[0]) {
@@ -435,13 +436,13 @@ func DropNA(e *State, T miniprofiler.Timer, series *Results) (*Results, error) {
 	return DropValues(e, T, series, fromScalar(0), dropFunction)
 }
 
-func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTags []string) ([]*Result, error) {
+func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTags []string) ([]*models.ExpressionResult, error) {
 	const parseErrFmt = "graphite ParseError (%s): %s"
 	if len(*s) == 0 {
 		return nil, fmt.Errorf(parseErrFmt, req.URL, "empty response")
 	}
 	seen := make(map[string]bool)
-	results := make([]*Result, 0)
+	results := make([]*models.ExpressionResult, 0)
 	for _, res := range *s {
 		// build tag set
 		tags := make(opentsdb.TagSet)
@@ -487,7 +488,7 @@ func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTa
 			t := time.Unix(unixTS, 0)
 			dps[t] = val
 		}
-		results = append(results, &Result{
+		results = append(results, &models.ExpressionResult{
 			Value: dps,
 			Group: tags,
 		})
@@ -530,7 +531,7 @@ func GraphiteBand(e *State, T miniprofiler.Timer, query, duration, period, forma
 				return
 			}
 			formatTags := strings.Split(format, ".")
-			var results []*Result
+			var results []*models.ExpressionResult
 			results, err = parseGraphiteResponse(req, &s, formatTags)
 			if err != nil {
 				return
@@ -646,7 +647,7 @@ func Window(e *State, T miniprofiler.Timer, query, duration, period string, num 
 		}
 		callResult := &Results{
 			Results: ResultSlice{
-				&Result{
+				&models.ExpressionResult{
 					Group: resp.Tags,
 					Value: values,
 				},
@@ -670,7 +671,7 @@ func Window(e *State, T miniprofiler.Timer, query, duration, period string, num 
 			}
 		}
 		if !found {
-			results.Results = append(results.Results, &Result{
+			results.Results = append(results.Results, &models.ExpressionResult{
 				Group: resp.Tags,
 				Value: Series{
 					minTime: fres,
@@ -692,7 +693,7 @@ func windowCheck(t *parse.Tree, f *parse.FuncNode) error {
 	if !ok {
 		return fmt.Errorf("expr: Window: unknown function %v", name)
 	}
-	if len(v.Args) != 1 || v.Args[0] != parse.TypeSeriesSet || v.Return != parse.TypeNumberSet {
+	if len(v.Args) != 1 || v.Args[0] != models.TypeSeriesSet || v.Return != models.TypeNumberSet {
 		return fmt.Errorf("expr: Window: %v is not a reduction function", name)
 	}
 	return nil
@@ -717,7 +718,7 @@ func Band(e *State, T miniprofiler.Timer, query, duration, period string, num fl
 		}
 		if newarr {
 			values := make(Series)
-			a := &Result{Group: res.Tags}
+			a := &models.ExpressionResult{Group: res.Tags}
 			for k, v := range res.DPS {
 				i, e := strconv.ParseInt(k, 10, 64)
 				if e != nil {
@@ -826,7 +827,7 @@ func Query(e *State, T miniprofiler.Timer, query, sduration, eduration string) (
 			}
 			values[time.Unix(i, 0).UTC()] = float64(v)
 		}
-		r.Results = append(r.Results, &Result{
+		r.Results = append(r.Results, &models.ExpressionResult{
 			Value: values,
 			Group: res.Tags,
 		})
@@ -911,14 +912,14 @@ func change(dps Series, args ...float64) float64 {
 func fromScalar(f float64) *Results {
 	return &Results{
 		Results: ResultSlice{
-			&Result{
+			&models.ExpressionResult{
 				Value: Number(f),
 			},
 		},
 	}
 }
 
-func match(f func(res *Results, series *Result, floats []float64) error, series *Results, numberSets ...*Results) (*Results, error) {
+func match(f func(res *Results, series *models.ExpressionResult, floats []float64) error, series *Results, numberSets ...*Results) (*Results, error) {
 	res := *series
 	res.Results = nil
 	for _, s := range series.Results {
@@ -945,7 +946,7 @@ func match(f func(res *Results, series *Result, floats []float64) error, series 
 }
 
 func reduce(e *State, T miniprofiler.Timer, series *Results, F func(Series, ...float64) float64, args ...*Results) (*Results, error) {
-	f := func(res *Results, s *Result, floats []float64) error {
+	f := func(res *Results, s *models.ExpressionResult, floats []float64) error {
 		t := s.Value.(Series)
 		if len(t) == 0 {
 			return nil
@@ -1011,7 +1012,7 @@ func Count(e *State, T miniprofiler.Timer, query, sduration, eduration string) (
 		return
 	}
 	return &Results{
-		Results: []*Result{
+		Results: []*models.ExpressionResult{
 			{Value: Scalar(len(r.Results))},
 		},
 	}, nil
@@ -1253,7 +1254,7 @@ func Ungroup(e *State, T miniprofiler.Timer, d *Results) (*Results, error) {
 
 func Transpose(e *State, T miniprofiler.Timer, d *Results, gp string) (*Results, error) {
 	gps := strings.Split(gp, ",")
-	m := make(map[string]*Result)
+	m := make(map[string]*models.ExpressionResult)
 	for _, v := range d.Results {
 		ts := make(opentsdb.TagSet)
 		for k, v := range v.Group {
@@ -1264,7 +1265,7 @@ func Transpose(e *State, T miniprofiler.Timer, d *Results, gp string) (*Results,
 			}
 		}
 		if _, ok := m[ts.String()]; !ok {
-			m[ts.String()] = &Result{
+			m[ts.String()] = &models.ExpressionResult{
 				Group: ts,
 				Value: make(Series),
 			}
