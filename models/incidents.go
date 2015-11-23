@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net/http"
 	"encoding/json"
 	"time"
 
@@ -32,6 +33,7 @@ type IncidentState struct {
 
 	Subject      string
 	Body         string
+	http.Server
 	EmailBody    []byte        `json:"-"`
 	EmailSubject []byte        `json:"-"`
 	Attachments  []*Attachment `json:"-"`

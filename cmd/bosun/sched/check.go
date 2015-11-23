@@ -321,36 +321,37 @@ func (s *Schedule) CollectStates() {
 		ackByNotificationCounts[notificationName][false] = 0
 		ackByNotificationCounts[notificationName][true] = 0
 	}
-	for _, state := range s.status {
-		if !state.Open {
-			continue
-		}
-		name := state.AlertKey.Name()
-		alertDef := s.Conf.Alerts[name]
-		nots := make(map[string]bool)
-		for name := range alertDef.WarnNotification.Get(s.Conf, state.Group) {
-			nots[name] = true
-		}
-		for name := range alertDef.CritNotification.Get(s.Conf, state.Group) {
-			nots[name] = true
-		}
-		incident, err := s.GetIncident(state.Last().IncidentId)
-		if err != nil {
-			slog.Errorln(err)
-		}
-		for notificationName := range nots {
-			ackByNotificationCounts[notificationName][state.NeedAck]++
-			if incident != nil && incident.Start.Before(unAckOldestByNotification[notificationName]) && state.NeedAck {
-				unAckOldestByNotification[notificationName] = incident.Start
-			}
-		}
-		severity := state.CurrentStatus.String()
-		lastAbnormal := state.LastAbnormalStatus.String()
-		severityCounts[state.Alert][severity]++
-		abnormalCounts[state.Alert][lastAbnormal]++
-		ackStatusCounts[state.Alert][state.NeedAck]++
-		activeStatusCounts[state.Alert][state.IsActive()]++
-	}
+	//TODO:
+	//	for _, state := range s.status {
+	//		if !state.Open {
+	//			continue
+	//		}
+	//		name := state.AlertKey.Name()
+	//		alertDef := s.Conf.Alerts[name]
+	//		nots := make(map[string]bool)
+	//		for name := range alertDef.WarnNotification.Get(s.Conf, state.Group) {
+	//			nots[name] = true
+	//		}
+	//		for name := range alertDef.CritNotification.Get(s.Conf, state.Group) {
+	//			nots[name] = true
+	//		}
+	//		incident, err := s.GetIncident(state.Last().IncidentId)
+	//		if err != nil {
+	//			slog.Errorln(err)
+	//		}
+	//		for notificationName := range nots {
+	//			ackByNotificationCounts[notificationName][state.NeedAck]++
+	//			if incident != nil && incident.Start.Before(unAckOldestByNotification[notificationName]) && state.NeedAck {
+	//				unAckOldestByNotification[notificationName] = incident.Start
+	//			}
+	//		}
+	//		severity := state.CurrentStatus.String()
+	//		lastAbnormal := state.LastAbnormalStatus.String()
+	//		severityCounts[state.Alert][severity]++
+	//		abnormalCounts[state.Alert][lastAbnormal]++
+	//		ackStatusCounts[state.Alert][state.NeedAck]++
+	//		activeStatusCounts[state.Alert][state.IsActive()]++
+	//	}
 	for notification := range ackByNotificationCounts {
 		ts := opentsdb.TagSet{"notification": notification}
 		err := collect.Put("alerts.acknowledgement_status_by_notification",
@@ -427,16 +428,17 @@ func (r *RunHistory) GetUnknownAndUnevaluatedAlertKeys(alert string) (unknown, u
 	unknown = []models.AlertKey{}
 	uneval = []models.AlertKey{}
 	r.schedule.Lock("GetUnknownUneval")
-	for ak, st := range r.schedule.status {
-		if ak.Name() != alert {
-			continue
-		}
-		if st.Last().Status == models.StUnknown {
-			unknown = append(unknown, ak)
-		} else if st.Unevaluated {
-			uneval = append(uneval, ak)
-		}
-	}
+	//TODO:
+	//	for ak, st := range r.schedule.status {
+	//		if ak.Name() != alert {
+	//			continue
+	//		}
+	//		if st.Last().Status == models.StUnknown {
+	//			unknown = append(unknown, ak)
+	//		} else if st.Unevaluated {
+	//			uneval = append(uneval, ak)
+	//		}
+	//	}
 	r.schedule.Unlock()
 	return unknown, uneval
 }
@@ -449,23 +451,24 @@ func (s *Schedule) findUnknownAlerts(now time.Time, alert string) []models.Alert
 		return keys
 	}
 	s.Lock("FindUnknown")
-	for ak, st := range s.status {
-		name := ak.Name()
-		if name != alert || st.Forgotten || !s.AlertSuccessful(ak.Name()) {
-			continue
-		}
-		a := s.Conf.Alerts[name]
-		t := a.Unknown
-		if t == 0 {
-			t = s.Conf.CheckFrequency * 2 * time.Duration(a.RunEvery)
-		}
-		//TODO:
-		/*
-			if now.Sub(st.Touched) < t {
-				continue
-			}*/
-		keys = append(keys, ak)
-	}
+	// TODO:
+	//	for ak, st := range s.status {
+	//		name := ak.Name()
+	//		if name != alert || st.Forgotten || !s.AlertSuccessful(ak.Name()) {
+	//			continue
+	//		}
+	//		a := s.Conf.Alerts[name]
+	//		t := a.Unknown
+	//		if t == 0 {
+	//			t = s.Conf.CheckFrequency * 2 * time.Duration(a.RunEvery)
+	//		}
+	//		//TODO:
+	//		/*
+	//			if now.Sub(st.Touched) < t {
+	//				continue
+	//			}*/
+	//		keys = append(keys, ak)
+	//	}
 	s.Unlock()
 	return keys
 }

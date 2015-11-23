@@ -88,13 +88,14 @@ func (s *Schedule) Silenced() map[models.AlertKey]Silence {
 			continue
 		}
 		s.Lock("Silence")
-		for ak := range s.status {
-			if si.Silenced(now, ak.Name(), ak.Group()) {
-				if aks[ak].End.Before(si.End) {
-					aks[ak] = *si
-				}
-			}
-		}
+		//TODO:
+		//		for ak := range s.status {
+		//			if si.Silenced(now, ak.Name(), ak.Group()) {
+		//				if aks[ak].End.Before(si.End) {
+		//					aks[ak] = *si
+		//				}
+		//			}
+		//		}
 		s.Unlock()
 	}
 	return aks
@@ -139,11 +140,12 @@ func (s *Schedule) AddSilence(start, end time.Time, alert, tagList string, forge
 		return nil, nil
 	}
 	aks := make(map[models.AlertKey]bool)
-	for ak := range s.status {
-		if si.Matches(ak.Name(), ak.Group()) {
-			aks[ak] = s.status[ak].IsActive()
-		}
-	}
+	//TODO:
+	//	for ak := range s.status {
+	//		if si.Matches(ak.Name(), ak.Group()) {
+	//			aks[ak] = s.status[ak].IsActive()
+	//		}
+	//	}
 	return aks, nil
 }
 

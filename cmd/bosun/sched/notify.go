@@ -59,17 +59,18 @@ func (s *Schedule) CheckNotifications() time.Duration {
 				s.AddNotification(ak, n, t)
 				continue
 			}
-			st := s.status[ak]
-			if st == nil {
-				continue
-			}
-			// If alert is currently unevaluated because of a dependency,
-			// simply requeue it until the dependency resolves itself.
-			if st.Unevaluated {
-				s.AddNotification(ak, n, t)
-				continue
-			}
-			s.Notify(st, n)
+			//TODO:
+			//			st := s.status[ak]
+			//			if st == nil {
+			//				continue
+			//			}
+			//			// If alert is currently unevaluated because of a dependency,
+			//			// simply requeue it until the dependency resolves itself.
+			//			if st.Unevaluated {
+			//				s.AddNotification(ak, n, t)
+			//				continue
+			//			}
+			//			s.Notify(st, n)
 		}
 	}
 	s.sendNotifications(silenced)

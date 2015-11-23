@@ -37,8 +37,8 @@ func TestCheckFlapping(t *testing.T) {
 	s, _ := initSched(c)
 	ak := models.NewAlertKey("a", nil)
 	r := &RunHistory{
-		Events: map[models.AlertKey]*Event{
-			ak: {Status: StWarning},
+		Events: map[models.AlertKey]*models.Event{
+			ak: {Status: models.StWarning},
 		},
 	}
 	hasNots := func() bool {
@@ -58,17 +58,17 @@ func TestCheckFlapping(t *testing.T) {
 	}
 
 	type stateTransition struct {
-		S          Status
+		S          models.Status
 		ExpectNots bool
 	}
 	transitions := []stateTransition{
-		{StWarning, true},
-		{StNormal, false},
-		{StWarning, false},
-		{StNormal, false},
-		{StCritical, true},
-		{StWarning, false},
-		{StCritical, false},
+		{models.StWarning, true},
+		{models.StNormal, false},
+		{models.StWarning, false},
+		{models.StNormal, false},
+		{models.StCritical, true},
+		{models.StWarning, false},
+		{models.StCritical, false},
 	}
 
 	for i, trans := range transitions {
@@ -81,13 +81,13 @@ func TestCheckFlapping(t *testing.T) {
 			t.Fatalf("expected notifications for transition %d.", i)
 		}
 	}
-	r.Events[ak].Status = StNormal
+	r.Events[ak].Status = models.StNormal
 	s.RunHistory(r)
 	// Close the alert, so it should notify next time.
-	if err := s.Action("", "", ActionClose, ak); err != nil {
+	if err := s.Action("", "", models.ActionClose, ak); err != nil {
 		t.Fatal(err)
 	}
-	r.Events[ak].Status = StWarning
+	r.Events[ak].Status = models.StWarning
 	s.RunHistory(r)
 	if !hasNots() {
 		t.Fatal("expected notification")
@@ -152,8 +152,8 @@ func TestIncidentIds(t *testing.T) {
 	s, _ := initSched(c)
 	ak := models.NewAlertKey("a", nil)
 	r := &RunHistory{
-		Events: map[models.AlertKey]*Event{
-			ak: {Status: StWarning},
+		Events: map[models.AlertKey]*models.Event{
+			ak: {Status: models.StWarning},
 		},
 	}
 	expect := func(id uint64) {
@@ -164,24 +164,24 @@ func TestIncidentIds(t *testing.T) {
 	s.RunHistory(r)
 	expect(1)
 
-	r.Events[ak].Status = StNormal
+	r.Events[ak].Status = models.StNormal
 	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(1)
 
-	r.Events[ak].Status = StWarning
+	r.Events[ak].Status = models.StWarning
 	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(1)
 
-	r.Events[ak].Status = StNormal
+	r.Events[ak].Status = models.StNormal
 	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
-	err = s.Action("", "", ActionClose, ak)
+	err = s.Action("", "", models.ActionClose, ak)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.Events[ak].Status = StWarning
+	r.Events[ak].Status = models.StWarning
 	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(2)
@@ -264,9 +264,9 @@ func TestCheckNotifyUnknown(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &RunHistory{
-		Events: map[models.AlertKey]*Event{
-			models.NewAlertKey("a", opentsdb.TagSet{"h": "x"}): {Status: StUnknown},
-			models.NewAlertKey("a", opentsdb.TagSet{"h": "y"}): {Status: StUnknown},
+		Events: map[models.AlertKey]*models.Event{
+			models.NewAlertKey("a", opentsdb.TagSet{"h": "x"}): {Status: models.StUnknown},
+			models.NewAlertKey("a", opentsdb.TagSet{"h": "y"}): {Status: models.StUnknown},
 		},
 	}
 	s.RunHistory(r)
@@ -326,9 +326,9 @@ func TestCheckNotifyUnknownDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &RunHistory{
-		Events: map[models.AlertKey]*Event{
-			models.NewAlertKey("a", opentsdb.TagSet{"h": "x"}): {Status: StUnknown},
-			models.NewAlertKey("a", opentsdb.TagSet{"h": "y"}): {Status: StUnknown},
+		Events: map[models.AlertKey]*models.Event{
+			models.NewAlertKey("a", opentsdb.TagSet{"h": "x"}): {Status: models.StUnknown},
+			models.NewAlertKey("a", opentsdb.TagSet{"h": "y"}): {Status: models.StUnknown},
 		},
 	}
 	s.RunHistory(r)
@@ -453,8 +453,8 @@ func TestCheckCritUnknownEmpty(t *testing.T) {
 	s, _ := initSched(c)
 	ak := models.NewAlertKey("a", nil)
 	r := &RunHistory{
-		Events: map[models.AlertKey]*Event{
-			ak: {Status: StNormal},
+		Events: map[models.AlertKey]*models.Event{
+			ak: {Status: models.StNormal},
 		},
 	}
 	verify := func(empty bool) {
@@ -471,13 +471,13 @@ func TestCheckCritUnknownEmpty(t *testing.T) {
 	}
 	s.RunHistory(r)
 	verify(true)
-	r.Events[ak].Status = StCritical
+	r.Events[ak].Status = models.StCritical
 	s.RunHistory(r)
 	verify(false)
-	r.Events[ak].Status = StUnknown
+	r.Events[ak].Status = models.StUnknown
 	s.RunHistory(r)
 	verify(true)
-	r.Events[ak].Status = StNormal
+	r.Events[ak].Status = models.StNormal
 	s.RunHistory(r)
 	verify(true)
 }

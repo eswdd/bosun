@@ -34,7 +34,7 @@ type schedTest struct {
 	queries map[string]opentsdb.ResponseSet
 	// state -> active
 	state    map[schedState]bool
-	previous map[models.AlertKey]*State
+	previous map[models.AlertKey]*IncidentStatus
 }
 
 // test-only function to check all alerts immediately.

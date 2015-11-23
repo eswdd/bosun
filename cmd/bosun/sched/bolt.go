@@ -45,7 +45,6 @@ const (
 	dbConfigTextBucket = "configText"
 	dbNotifications    = "notifications"
 	dbSilence          = "silence"
-	dbStatus           = "status"
 )
 
 func (s *Schedule) save() {
@@ -56,7 +55,6 @@ func (s *Schedule) save() {
 	store := map[string]interface{}{
 		dbNotifications: s.Notifications,
 		dbSilence:       s.Silence,
-		dbStatus:        s.status,
 	}
 	tostore := make(map[string][]byte)
 	for name, data := range store {
@@ -146,10 +144,10 @@ func (s *Schedule) RestoreState() error {
 		slog.Errorln(dbSilence, err)
 	}
 
-	status := make(States)
-	if err := decode(db, dbStatus, &status); err != nil {
-		slog.Errorln(dbStatus, err)
-	}
+	//status := make(States)
+	//	if err := decode(db, dbStatus, &status); err != nil {
+	//		slog.Errorln(dbStatus, err)
+	//	}
 	//	clear := func(r *models.Result) {
 	//		if r == nil {
 	//			return

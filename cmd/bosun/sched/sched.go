@@ -36,7 +36,6 @@ type Schedule struct {
 	mutexWaitTime int64
 
 	Conf    *conf.Conf
-	status  States
 	Silence map[string]*Silence
 	Group   map[time.Time]models.AlertKeys
 
@@ -70,7 +69,6 @@ func (s *Schedule) Init(c *conf.Conf) error {
 	s.Silence = make(map[string]*Silence)
 	s.Group = make(map[time.Time]models.AlertKeys)
 	s.pendingUnknowns = make(map[*conf.Notification][]*models.IncidentState)
-	s.status = make(States)
 	s.LastCheck = time.Now()
 	s.ctx = &checkContext{time.Now(), cache.New(0)}
 	if s.DataAccess == nil {
@@ -585,58 +583,59 @@ func init() {
 func (s *Schedule) Action(user, message string, t models.ActionType, ak models.AlertKey) error {
 	s.Lock("Action")
 	defer s.Unlock()
-	st := s.status[ak]
-	if st == nil {
-		return fmt.Errorf("no such alert key: %v", ak)
-	}
-	ack := func() {
-		delete(s.Notifications, ak)
-		st.NeedAck = false
-	}
-	isUnknown := st.LastAbnormalStatus == models.StUnknown
-	timestamp := time.Now().UTC()
-	switch t {
-	case models.ActionAcknowledge:
-		if !st.NeedAck {
-			return fmt.Errorf("alert already acknowledged")
-		}
-		if !st.Open {
-			return fmt.Errorf("cannot acknowledge closed alert")
-		}
-		ack()
-	case models.ActionClose:
-		if st.NeedAck {
-			ack()
-		}
-		if st.IsActive() {
-			return fmt.Errorf("cannot close active alert")
-		}
-		st.Open = false
-		last := st.Last()
-		if last.IncidentId != 0 {
-			incident, err := s.DataAccess.Incidents().GetIncident(last.IncidentId)
-			if err != nil {
-				return err
-			}
-			incident.End = &timestamp
-			if err = s.DataAccess.Incidents().UpdateIncident(last.IncidentId, incident); err != nil {
-				return err
-			}
+	// TODO:
+	//st := s.status[ak]
+	//	if st == nil {
+	//		return fmt.Errorf("no such alert key: %v", ak)
+	//	}
+	//	ack := func() {
+	//		delete(s.Notifications, ak)
+	//		st.NeedAck = false
+	//	}
+	//	isUnknown := st.LastAbnormalStatus == models.StUnknown
+	//	timestamp := time.Now().UTC()
+	//	switch t {
+	//	case models.ActionAcknowledge:
+	//		if !st.NeedAck {
+	//			return fmt.Errorf("alert already acknowledged")
+	//		}
+	//		if !st.Open {
+	//			return fmt.Errorf("cannot acknowledge closed alert")
+	//		}
+	//		ack()
+	//	case models.ActionClose:
+	//		if st.NeedAck {
+	//			ack()
+	//		}
+	//		if st.IsActive() {
+	//			return fmt.Errorf("cannot close active alert")
+	//		}
+	//		st.Open = false
+	//		last := st.Last()
+	//		if last.IncidentId != 0 {
+	//			incident, err := s.DataAccess.Incidents().GetIncident(last.IncidentId)
+	//			if err != nil {
+	//				return err
+	//			}
+	//			incident.End = &timestamp
+	//			if err = s.DataAccess.Incidents().UpdateIncident(last.IncidentId, incident); err != nil {
+	//				return err
+	//			}
 
-		}
-	case models.ActionForget:
-		if !isUnknown {
-			return fmt.Errorf("can only forget unknowns")
-		}
-		if st.NeedAck {
-			ack()
-		}
-		st.Open = false
-		st.Forgotten = true
-		delete(s.status, ak)
-	default:
-		return fmt.Errorf("unknown action type: %v", t)
-	}
+	//		}
+	//	case models.ActionForget:
+	//		if !isUnknown {
+	//			return fmt.Errorf("can only forget unknowns")
+	//		}
+	//		if st.NeedAck {
+	//			ack()
+	//		}
+	//		st.Open = false
+	//		st.Forgotten = true
+	//		delete(s.status, ak)
+	//	default:
+	//		return fmt.Errorf("unknown action type: %v", t)
+	//	}
 	//TODO:
 	//	st.Action(user, message, t, timestamp)
 	// Would like to also track the alert group, but I believe this is impossible because any character
