@@ -108,8 +108,9 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	if err != nil {
 		return checkNotify, err
 	}
+
 	defer func() {
-		// save unless incident is new and closed
+		// save unless incident is new and closed (log alert)
 		if incident != nil && (incident.Id != 0 || incident.Open) {
 			data.UpdateIncidentState(incident.Id, incident)
 		}
@@ -128,7 +129,11 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 		return checkNotify, err
 	}
 
-	incident = NewIncident(ak)
+	shouldNotify := false
+	if incident == nil {
+		incident = NewIncident(ak)
+		shouldNotify = true
+	}
 
 	// set state.Result according to event result
 	if event.Crit != nil {
@@ -143,84 +148,79 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	}
 	if event.Status > incident.WorstStatus {
 		incident.WorstStatus = event.Status
+		shouldNotify = true
 	}
 	if event.Status != incident.Last().Status {
 		incident.Events = append(incident.Events, *event)
 	}
-	//	a := s.Conf.Alerts[ak.Name()]
+	a := s.Conf.Alerts[ak.Name()]
 	//render templates and open alert key if abnormal
-	//	if event.Status > models.StNormal {
-	//		s.executeTemplates(state, event, a, r)
-	//		incident.Open = true
-	//		if a.Log {
-	//			incdient.Open = false
-	//		}
-	//	}
+	if event.Status > models.StNormal {
+		s.executeTemplates(incident, event, a, r)
+		incident.Open = true
+		if a.Log {
+			incident.Open = false
+		}
+	}
+
 	// On state increase, clear old notifications and notify current.
-	// If the old alert was not acknowledged, do nothing.
 	// Do nothing if state did not change.
+	notify := func(ns *conf.Notifications) {
+		if a.Log {
+			lastLogTime := s.lastLogTimes[ak]
+			now := time.Now()
+			if now.Before(lastLogTime.Add(a.MaxLogFrequency)) {
+				return
+			}
+			s.lastLogTimes[ak] = now
+		}
+		nots := ns.Get(s.Conf, incident.Group)
+		for _, n := range nots {
+			s.Notify(incident, n)
+			checkNotify = true
+		}
+	}
 
-	//notify := func(ns *conf.Notifications) {
-	//	if a.Log {
-	//			lastLogTime := state.LastLogTime
-	//			now := time.Now()
-	//			if now.Before(lastLogTime.Add(a.MaxLogFrequency)) {
-	//				return
-	//			}
-	//			state.LastLogTime = now
-	//		}
-	//		nots := ns.Get(s.Conf, state.Group)
-	//		for _, n := range nots {
-	//			s.Notify(state, n)
-	//			checkNotify = true
-	//		}
-	//	}
-	//	notifyCurrent := func() {
-	//		// Auto close ignoreUnknowns.
-	//		if a.IgnoreUnknown && event.Status == StUnknown {
-	//			state.Open = false
-	//			state.Forgotten = true
-	//			state.NeedAck = false
-	//			state.Action("bosun", "Auto close because alert has ignoreUnknown.", ActionClose, event.Time)
-	//			slog.Infof("auto close %s because alert has ignoreUnknown", ak)
-	//			return
-	//		} else if silenced[ak].Forget && event.Status == StUnknown {
-	//			state.Open = false
-	//			state.Forgotten = true
-	//			state.NeedAck = false
-	//			state.Action("bosun", "Auto close because alert is silenced and marked auto forget.", ActionClose, event.Time)
-	//			slog.Infof("auto close %s because alert is silenced and marked auto forget", ak)
-	//			return
-	//		}
-	//		state.NeedAck = true
-	//		switch event.Status {
-	//		case StCritical, StUnknown:
-	//			notify(a.CritNotification)
-	//		case StWarning:
-	//			notify(a.WarnNotification)
-	//		}
-	//	}
-	//	clearOld := func() {
-	//		state.NeedAck = false
-	//		delete(s.Notifications, ak)
-	//	}
+	notifyCurrent := func() {
+		//Auto close ignoreUnknowns for new incident.
+		if a.IgnoreUnknown && event.Status == models.StUnknown {
+			incident.Open = false
+			return
+		} else if silenced[ak].Forget && event.Status == models.StUnknown {
+			incident.Open = false
+			return
+		}
+		incident.NeedAck = true
+		switch event.Status {
+		case models.StCritical, models.StUnknown:
+			notify(a.CritNotification)
+		case models.StWarning:
+			notify(a.WarnNotification)
+		}
+	}
+	clearOld := func() {
+		incident.NeedAck = false
+		delete(s.Notifications, ak)
+	}
 
-	//	// lock while we change notifications.
-	//	s.Lock("RunHistory")
-	//	if event.Status > worst {
-	//		clearOld()
-	//		notifyCurrent()
-	//	} else if _, ok := silenced[ak]; ok && event.Status == StNormal {
-	//		go func(ak models.AlertKey) {
-	//			slog.Infof("auto close %s because was silenced", ak)
-	//			err := s.Action("bosun", "Auto close because was silenced.", ActionClose, ak)
-	//			if err != nil {
-	//				slog.Errorln(err)
-	//			}
-	//		}(ak)
-	//	}
+	// lock while we change notifications.
+	s.Lock("RunHistory")
+	if shouldNotify {
+		clearOld()
+		notifyCurrent()
+	}
 
-	//	s.Unlock()
+	// finally close an open alert with silence once it goes back to normal.
+	if _, ok := silenced[ak]; ok && event.Status == models.StNormal {
+		go func(ak models.AlertKey) {
+			slog.Infof("auto close %s because was silenced", ak)
+			err := s.Action("bosun", "Auto close because was silenced.", models.ActionClose, ak)
+			if err != nil {
+				slog.Errorln(err)
+			}
+		}(ak)
+	}
+	s.Unlock()
 	return checkNotify, nil
 }
 

@@ -52,7 +52,8 @@ type Schedule struct {
 
 	db *bolt.DB
 
-	LastCheck time.Time
+	lastLogTimes map[models.AlertKey]time.Time
+	LastCheck    time.Time
 
 	ctx *checkContext
 
@@ -69,6 +70,7 @@ func (s *Schedule) Init(c *conf.Conf) error {
 	s.Silence = make(map[string]*Silence)
 	s.Group = make(map[time.Time]models.AlertKeys)
 	s.pendingUnknowns = make(map[*conf.Notification][]*models.IncidentState)
+	s.lastLogTimes = make(map[models.AlertKey]time.Time)
 	s.LastCheck = time.Now()
 	s.ctx = &checkContext{time.Now(), cache.New(0)}
 	if s.DataAccess == nil {
