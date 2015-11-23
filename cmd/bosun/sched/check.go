@@ -39,6 +39,7 @@ func init() {
 }
 
 func NewIncident(ak models.AlertKey) *models.IncidentState {
+	//TODO:
 	return &models.IncidentState{}
 }
 
@@ -79,7 +80,11 @@ func (s *Schedule) RunHistory(r *RunHistory) {
 	checkNotify := false
 	silenced := s.Silenced()
 	for ak, event := range r.Events {
-		checkNotify = s.runHistory(r, ak, event, silenced) || checkNotify
+		shouldNotify, err := s.runHistory(r, ak, event, silenced)
+		checkNotify = checkNotify || shouldNotify
+		if err != nil {
+			slog.Errorf("Error in runHistory for %s. %s.", ak, err)
+		}
 	}
 	if checkNotify && s.nc != nil {
 		select {
@@ -90,68 +95,73 @@ func (s *Schedule) RunHistory(r *RunHistory) {
 }
 
 // RunHistory for a single alert key. Returns true if notifications were altered.
-func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]Silence) bool {
-	//checkNotify := false
-	// TODO: Rewrite runHistory
-	//	// get existing state object for alert key. add to schedule status if doesn't already exist
-	//	state := s.GetStatus(ak)
-	//	if state == nil {
-	//		state = NewStatus(ak)
-	//		s.SetStatus(ak, state)
-	//	}
-	//defer s.SetStatus(ak, state)
+func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]Silence) (bool, error) {
+	checkNotify := false
+	event.Time = r.Start
+	data := s.DataAccess.State()
+	err := data.TouchAlertKey(ak, time.Now())
+	if err != nil {
+		return checkNotify, err
+	}
+	// get existing open incident if exists
+	incident, err := data.GetOpenIncident(ak)
+	if err != nil {
+		return checkNotify, err
+	}
+	defer func() {
+		// save unless incident is new and closed
+		if incident != nil && (incident.Id != 0 || incident.Open) {
+			data.UpdateIncidentState(incident.Id, incident)
+		}
+	}()
 
-	//	// make sure we always touch the state.
-	//	state.Touched = r.Start
-	//	// set state.Result according to event result
-	//	if event.Crit != nil {
-	//		state.Result = event.Crit
-	//	} else if event.Warn != nil {
-	//		state.Result = event.Warn
-	//	}
-	//	// if event is unevaluated, we are done.
-	//	state.Unevaluated = event.Unevaluated
-	//	if event.Unevaluated {
-	//		return checkNotify
-	//	}
-	//	// assign incident id to new event if applicable
-	//	prev := state.Last()
-	//	worst := StNormal
-	//	event.Time = r.Start
-	//	if prev.IncidentId != 0 {
-	//		// If last event has incident id and is not closed, we continue it.
-	//		incident, err := s.DataAccess.Incidents().GetIncident(prev.IncidentId)
-	//		if err != nil {
-	//			slog.Error(err)
-	//		} else if incident.End == nil {
-	//			event.IncidentId = prev.IncidentId
-	//			worst = state.WorstThisIncident()
-	//		}
-	//	}
-	//	if event.IncidentId == 0 && event.Status != StNormal {
-	//		incident, err := s.createIncident(ak, event.Time)
-	//		if err != nil {
-	//			slog.Error("Error creating incident", err)
-	//		} else {
-	//			event.IncidentId = incident.Id
-	//		}
-	//	}
+	// If nothing is out of the ordinary we are done
+	if event.Status <= models.StNormal && incident == nil {
+		return checkNotify, nil
+	}
 
-	//	state.Append(event)
+	// if event is unevaluated, we are done also.
+	if event.Unevaluated {
+		if incident != nil {
+			incident.Unevaluated = true
+		}
+		return checkNotify, err
+	}
+
+	incident = NewIncident(ak)
+
+	// set state.Result according to event result
+	if event.Crit != nil {
+		incident.Result = event.Crit
+	} else if event.Warn != nil {
+		incident.Result = event.Warn
+	}
+	event.IncidentId = uint64(incident.Id)
+	if event.Status > models.StNormal {
+		incident.LastAbnormalStatus = event.Status
+		incident.LastAbnormalTime = event.Time.UTC().Unix()
+	}
+	if event.Status > incident.WorstStatus {
+		incident.WorstStatus = event.Status
+	}
+	if event.Status != incident.Last().Status {
+		incident.Events = append(incident.Events, *event)
+	}
 	//	a := s.Conf.Alerts[ak.Name()]
-	//	// render templates and open alert key if abnormal
-	//	if event.Status > StNormal {
+	//render templates and open alert key if abnormal
+	//	if event.Status > models.StNormal {
 	//		s.executeTemplates(state, event, a, r)
-	//		state.Open = true
+	//		incident.Open = true
 	//		if a.Log {
-	//			state.Open = false
+	//			incdient.Open = false
 	//		}
 	//	}
-	//	// On state increase, clear old notifications and notify current.
-	//	// If the old alert was not acknowledged, do nothing.
-	//	// Do nothing if state did not change.
-	//	notify := func(ns *conf.Notifications) {
-	//		if a.Log {
+	// On state increase, clear old notifications and notify current.
+	// If the old alert was not acknowledged, do nothing.
+	// Do nothing if state did not change.
+
+	//notify := func(ns *conf.Notifications) {
+	//	if a.Log {
 	//			lastLogTime := state.LastLogTime
 	//			now := time.Now()
 	//			if now.Before(lastLogTime.Add(a.MaxLogFrequency)) {
@@ -211,8 +221,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	//	}
 
 	//	s.Unlock()
-	//	return checkNotify
-	return false
+	return checkNotify, nil
 }
 
 func (s *Schedule) executeTemplates(state *models.IncidentState, event *models.Event, a *conf.Alert, r *RunHistory) {

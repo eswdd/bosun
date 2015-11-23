@@ -21,6 +21,7 @@ type DataAccess interface {
 	Search() SearchDataAccess
 	Errors() ErrorDataAccess
 	Incidents() IncidentDataAccess
+	State() StateDataAccess
 }
 
 type MetadataDataAccess interface {
