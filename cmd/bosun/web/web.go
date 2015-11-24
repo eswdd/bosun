@@ -389,8 +389,8 @@ func IncidentEvents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request
 	}
 	return struct {
 		Incident *models.Incident
-		Events   []sched.Event
-		Actions  []sched.Action
+		Events   []models.Event
+		Actions  []models.Action
 	}{incident, events, actions}, nil
 }
 
@@ -425,25 +425,26 @@ func Incidents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (in
 }
 
 func Status(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	r.ParseForm()
-	type ExtStatus struct {
-		AlertName string
-		*sched.State
-	}
-	m := make(map[string]ExtStatus)
-	for _, k := range r.Form["ak"] {
-		ak, err := models.ParseAlertKey(k)
-		if err != nil {
-			return nil, err
-		}
-		st := ExtStatus{State: schedule.GetStatus(ak)}
-		if st.State == nil {
-			return nil, fmt.Errorf("unknown alert key: %v", k)
-		}
-		st.AlertName = ak.Name()
-		m[k] = st
-	}
-	return m, nil
+	return nil, nil
+	//	r.ParseForm()
+	//	type ExtStatus struct {
+	//		AlertName string
+	//		*models.IncidentState
+	//	}
+	//	m := make(map[string]ExtStatus)
+	//	for _, k := range r.Form["ak"] {
+	//		ak, err := models.ParseAlertKey(k)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//		st := ExtStatus{State: schedule.GetStatus(ak)}
+	//		if st.State == nil {
+	//			return nil, fmt.Errorf("unknown alert key: %v", k)
+	//		}
+	//		st.AlertName = ak.Name()
+	//		m[k] = st
+	//	}
+	//	return m, nil
 }
 
 func Action(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
@@ -458,14 +459,14 @@ func Action(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (inter
 	if err := j.Decode(&data); err != nil {
 		return nil, err
 	}
-	var at sched.ActionType
+	var at models.ActionType
 	switch data.Type {
 	case "ack":
-		at = sched.ActionAcknowledge
+		at = models.ActionAcknowledge
 	case "close":
-		at = sched.ActionClose
+		at = models.ActionClose
 	case "forget":
-		at = sched.ActionForget
+		at = models.ActionForget
 	}
 	errs := make(MultiError)
 	r.ParseForm()

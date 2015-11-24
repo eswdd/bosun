@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/mail"
 	"net/url"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -119,136 +117,137 @@ func getTime(r *http.Request) (now time.Time, err error) {
 }
 
 type Res struct {
-	*sched.Event
+	*models.Event
 	Key models.AlertKey
 }
 
 func procRule(t miniprofiler.Timer, c *conf.Conf, a *conf.Alert, now time.Time, summary bool, email string, template_group string) (*ruleResult, error) {
-	s := &sched.Schedule{}
-	s.DataAccess = schedule.DataAccess
-	s.Search = schedule.Search
-	if err := s.Init(c); err != nil {
-		return nil, err
-	}
-	rh := s.NewRunHistory(now, cacheObj)
-	if _, err := s.CheckExpr(t, rh, a, a.Warn, sched.StWarning, nil); err != nil {
-		return nil, err
-	}
-	if _, err := s.CheckExpr(t, rh, a, a.Crit, sched.StCritical, nil); err != nil {
-		return nil, err
-	}
-	keys := make(models.AlertKeys, len(rh.Events))
-	criticals, warnings, normals := make([]models.AlertKey, 0), make([]models.AlertKey, 0), make([]models.AlertKey, 0)
-	i := 0
-	for k, v := range rh.Events {
-		v.Time = now
-		keys[i] = k
-		i++
-		switch v.Status {
-		case sched.StNormal:
-			normals = append(normals, k)
-		case sched.StWarning:
-			warnings = append(warnings, k)
-		case sched.StCritical:
-			criticals = append(criticals, k)
-		default:
-			return nil, fmt.Errorf("unknown state type %v", v.Status)
-		}
-	}
-	sort.Sort(keys)
-	var subject, body []byte
-	var data interface{}
-	warning := make([]string, 0)
-	if !summary && len(keys) > 0 {
-		var instance *sched.State
-		if template_group != "" {
-			ts, err := opentsdb.ParseTags(template_group)
-			if err != nil {
-				return nil, err
-			}
-			for _, ak := range keys {
-				if ak.Group().Subset(ts) {
-					instance = s.GetOrCreateStatus(ak)
-					instance.History = []sched.Event{*rh.Events[ak]}
-					break
-				}
-			}
-		}
-		if instance == nil {
-			instance = s.GetOrCreateStatus(keys[0])
-			instance.History = []sched.Event{*rh.Events[keys[0]]}
-			if template_group != "" {
-				warning = append(warning, fmt.Sprintf("template group %s was not a subset of any result", template_group))
-			}
-		}
-		if e := instance.History[0]; e.Crit != nil {
-			instance.Result = e.Crit
-		} else if e.Warn != nil {
-			instance.Result = e.Warn
-		}
-		var b_err, s_err error
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					s := fmt.Sprint(err)
-					warning = append(warning, s)
-					b_err = fmt.Errorf(s)
-				}
-			}()
-			if body, _, b_err = s.ExecuteBody(rh, a, instance, false); b_err != nil {
-				warning = append(warning, b_err.Error())
-			}
-		}()
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					s := fmt.Sprint(err)
-					warning = append(warning, s)
-					s_err = fmt.Errorf(s)
-				}
-			}()
-			subject, s_err = s.ExecuteSubject(rh, a, instance, false)
-			if s_err != nil {
-				warning = append(warning, s_err.Error())
-			}
-		}()
-		if s_err != nil || b_err != nil {
-			var err error
-			subject, body, err = s.ExecuteBadTemplate([]error{s_err, b_err}, rh, a, instance)
-			if err != nil {
-				subject = []byte(fmt.Sprintf("unable to create tempalate error notification: %v", err))
-			}
-		} else if email != "" {
-			m, err := mail.ParseAddress(email)
-			if err != nil {
-				return nil, err
-			}
-			n := conf.Notification{
-				Email: []*mail.Address{m},
-			}
-			email, attachments, b_err := s.ExecuteBody(rh, a, instance, true)
-			email_subject, s_err := s.ExecuteSubject(rh, a, instance, true)
-			if b_err != nil {
-				warning = append(warning, b_err.Error())
-			} else if s_err != nil {
-				warning = append(warning, s_err.Error())
-			} else {
-				n.DoEmail(email_subject, email, schedule.Conf, string(instance.AlertKey()), attachments...)
-			}
-		}
-		data = s.Data(rh, instance, a, false)
-	}
-	return &ruleResult{
-		criticals,
-		warnings,
-		normals,
-		now,
-		string(body),
-		string(subject),
-		data,
-		rh.Events,
-		warning,
-	}, nil
+	//	s := &sched.Schedule{}
+	//	s.DataAccess = schedule.DataAccess
+	//	s.Search = schedule.Search
+	//	if err := s.Init(c); err != nil {
+	//		return nil, err
+	//	}
+	//	rh := s.NewRunHistory(now, cacheObj)
+	//	if _, err := s.CheckExpr(t, rh, a, a.Warn, models.StWarning, nil); err != nil {
+	//		return nil, err
+	//	}
+	//	if _, err := s.CheckExpr(t, rh, a, a.Crit, models.StCritical, nil); err != nil {
+	//		return nil, err
+	//	}
+	//	keys := make(models.AlertKeys, len(rh.Events))
+	//	criticals, warnings, normals := make([]models.AlertKey, 0), make([]models.AlertKey, 0), make([]models.AlertKey, 0)
+	//	i := 0
+	//	for k, v := range rh.Events {
+	//		v.Time = now
+	//		keys[i] = k
+	//		i++
+	//		switch v.Status {
+	//		case models.StNormal:
+	//			normals = append(normals, k)
+	//		case models.StWarning:
+	//			warnings = append(warnings, k)
+	//		case models.StCritical:
+	//			criticals = append(criticals, k)
+	//		default:
+	//			return nil, fmt.Errorf("unknown state type %v", v.Status)
+	//		}
+	//	}
+	//	sort.Sort(keys)
+	//	var subject, body []byte
+	//	var data interface{}
+	//	warning := make([]string, 0)
+	//	if !summary && len(keys) > 0 {
+	//		var instance *models.IncidentState
+	//		if template_group != "" {
+	//			ts, err := opentsdb.ParseTags(template_group)
+	//			if err != nil {
+	//				return nil, err
+	//			}
+	//			for _, ak := range keys {
+	//				if ak.Group().Subset(ts) {
+	//					instance = s.GetOrCreateStatus(ak)
+	//					instance.History = []sched.Event{*rh.Events[ak]}
+	//					break
+	//				}
+	//			}
+	//		}
+	//		if instance == nil {
+	//			instance = s.GetOrCreateStatus(keys[0])
+	//			instance.History = []sched.Event{*rh.Events[keys[0]]}
+	//			if template_group != "" {
+	//				warning = append(warning, fmt.Sprintf("template group %s was not a subset of any result", template_group))
+	//			}
+	//		}
+	//		if e := instance.History[0]; e.Crit != nil {
+	//			instance.Result = e.Crit
+	//		} else if e.Warn != nil {
+	//			instance.Result = e.Warn
+	//		}
+	//		var b_err, s_err error
+	//		func() {
+	//			defer func() {
+	//				if err := recover(); err != nil {
+	//					s := fmt.Sprint(err)
+	//					warning = append(warning, s)
+	//					b_err = fmt.Errorf(s)
+	//				}
+	//			}()
+	//			if body, _, b_err = s.ExecuteBody(rh, a, instance, false); b_err != nil {
+	//				warning = append(warning, b_err.Error())
+	//			}
+	//		}()
+	//		func() {
+	//			defer func() {
+	//				if err := recover(); err != nil {
+	//					s := fmt.Sprint(err)
+	//					warning = append(warning, s)
+	//					s_err = fmt.Errorf(s)
+	//				}
+	//			}()
+	//			subject, s_err = s.ExecuteSubject(rh, a, instance, false)
+	//			if s_err != nil {
+	//				warning = append(warning, s_err.Error())
+	//			}
+	//		}()
+	//		if s_err != nil || b_err != nil {
+	//			var err error
+	//			subject, body, err = s.ExecuteBadTemplate([]error{s_err, b_err}, rh, a, instance)
+	//			if err != nil {
+	//				subject = []byte(fmt.Sprintf("unable to create tempalate error notification: %v", err))
+	//			}
+	//		} else if email != "" {
+	//			m, err := mail.ParseAddress(email)
+	//			if err != nil {
+	//				return nil, err
+	//			}
+	//			n := conf.Notification{
+	//				Email: []*mail.Address{m},
+	//			}
+	//			email, attachments, b_err := s.ExecuteBody(rh, a, instance, true)
+	//			email_subject, s_err := s.ExecuteSubject(rh, a, instance, true)
+	//			if b_err != nil {
+	//				warning = append(warning, b_err.Error())
+	//			} else if s_err != nil {
+	//				warning = append(warning, s_err.Error())
+	//			} else {
+	//				n.DoEmail(email_subject, email, schedule.Conf, string(instance.AlertKey()), attachments...)
+	//			}
+	//		}
+	//		data = s.Data(rh, instance, a, false)
+	//	}
+	//	return &ruleResult{
+	//		criticals,
+	//		warnings,
+	//		normals,
+	//		now,
+	//		string(body),
+	//		string(subject),
+	//		data,
+	//		rh.Events,
+	//		warning,
+	//	}, nil
+	return nil, nil
 }
 
 type ruleResult struct {
@@ -260,7 +259,7 @@ type ruleResult struct {
 	Body    string
 	Subject string
 	Data    interface{}
-	Result  map[models.AlertKey]*sched.Event
+	Result  map[models.AlertKey]*models.Event
 	Warning []string
 }
 
@@ -334,7 +333,7 @@ func Rule(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interfa
 	close(resch)
 	type Result struct {
 		Group  models.AlertKey
-		Result *sched.Event
+		Result *models.Event
 	}
 	type Set struct {
 		Critical, Warning, Normal int

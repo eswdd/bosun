@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"net/http"
 	"time"
 
 	"bosun.org/opentsdb"
@@ -29,11 +28,8 @@ type IncidentState struct {
 	Events  []Event  `json:",omitempty"`
 	Actions []Action `json:",omitempty"`
 
-	//TODO: LastLogTime
-
-	Subject string
-	Body    string
-	http.Server
+	Subject      string
+	Body         string
 	EmailBody    []byte        `json:"-"`
 	EmailSubject []byte        `json:"-"`
 	Attachments  []*Attachment `json:"-"`

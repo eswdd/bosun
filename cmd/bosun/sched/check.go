@@ -150,9 +150,11 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 		incident.WorstStatus = event.Status
 		shouldNotify = true
 	}
-	if event.Status != incident.Last().Status {
+	if event.Status != incident.CurrentStatus {
 		incident.Events = append(incident.Events, *event)
 	}
+	incident.CurrentStatus = event.Status
+
 	a := s.Conf.Alerts[ak.Name()]
 	//render templates and open alert key if abnormal
 	if event.Status > models.StNormal {

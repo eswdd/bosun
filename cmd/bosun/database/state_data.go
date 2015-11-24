@@ -1,7 +1,8 @@
 package database
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 /*
 
 lastTouched: Hash of alert key to last touched time stamp
-incidentStates: Hash of incidentId to json of state
+incidentStates: Hash of incidentId to gob encoded state
 
 openIncidents: Hash of alert key to incident id (to avoid duplicates)
 incidentState:{ak}: List of incidents for alert key
@@ -71,12 +72,14 @@ func (d *dataAccess) GetIncidentState(incidentId int64) (*models.IncidentState, 
 	conn := d.GetConnection()
 	defer conn.Close()
 
-	j, err := redis.String(conn.Do("GET", incidentStateKey(incidentId)))
+	b, err := redis.Bytes(conn.Do("GET", incidentStateKey(incidentId)))
 	if err != nil {
 		return nil, err
 	}
+	r := bytes.NewReader(b)
+	dec := gob.NewDecoder(r)
 	state := &models.IncidentState{}
-	if err = json.Unmarshal([]byte(j), state); err != nil {
+	if err = dec.Decode(state); err != nil {
 		return nil, err
 	}
 	return state, nil
@@ -86,10 +89,15 @@ func (d *dataAccess) UpdateIncidentState(incidentId int64, s *models.IncidentSta
 	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "UpdateIncident"})()
 	conn := d.GetConnection()
 	defer conn.Close()
-	data, err := json.Marshal(s)
+
+	buf := &bytes.Buffer{}
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(s)
 	if err != nil {
+		fmt.Println("!!!", err)
 		return err
 	}
-	_, err = conn.Do("SET", incidentStateKey(incidentId), string(data))
+	fmt.Println("UPDATE!!")
+	_, err = conn.Do("SET", incidentStateKey(incidentId), buf.Bytes())
 	return err
 }
