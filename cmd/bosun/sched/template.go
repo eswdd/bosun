@@ -377,7 +377,7 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 	}
 	// temporarily store the results in a results[M][Ni] Result matrix:
 	// for M queries, tracks Ni results per each i'th query
-	results := make([][]*models.ExpressionResult, len(v))
+	results := make([][]*expr.Result, len(v))
 	for col, val := range v {
 		queryResults, _, err := c.eval(val, false, false, 0)
 		if err != nil {
@@ -388,9 +388,9 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 
 	// perform the joining by storing all results in a joined[N0][M] Result matrix:
 	// for N tagsets (based on first query results), tracks all M Results (results with matching group, from all other queries)
-	joined := make([][]*models.ExpressionResult, 0)
+	joined := make([][]*expr.Result, 0)
 	for row, firstQueryResult := range results[0] {
-		joined = append(joined, make([]*models.ExpressionResult, len(v)))
+		joined = append(joined, make([]*expr.Result, len(v)))
 		joined[row][0] = firstQueryResult
 		// join results of 2nd to M queries
 		for col, queryResults := range results[1:] {
@@ -400,7 +400,7 @@ func (c *Context) LeftJoin(v ...interface{}) (interface{}, error) {
 					break
 				}
 				// Fill emtpy cells with NaN Value, so calling .Value is not a nil pointer dereference
-				joined[row][col+1] = &models.ExpressionResult{Value: expr.Number(math.NaN())}
+				joined[row][col+1] = &expr.Result{Value: expr.Number(math.NaN())}
 			}
 		}
 	}

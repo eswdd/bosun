@@ -82,7 +82,7 @@ func InfluxQuery(e *State, T miniprofiler.Timer, db, query, startDuration, endDu
 			}
 			values[t] = f
 		}
-		r.Results = append(r.Results, &models.ExpressionResult{
+		r.Results = append(r.Results, &Result{
 			Value: values,
 			Group: tags,
 		})

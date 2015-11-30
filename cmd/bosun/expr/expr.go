@@ -142,6 +142,11 @@ func marshalFloat(n float64) ([]byte, error) {
 	return json.Marshal(n)
 }
 
+type Value interface {
+	Type() models.FuncType
+	Value() interface{}
+}
+
 type Number float64
 
 func (n Number) Type() models.FuncType        { return models.TypeNumberSet }
@@ -191,6 +196,12 @@ func NewSortedSeries(dps Series) SortableSeries {
 	return series
 }
 
+type Result struct {
+	models.Computations
+	Value
+	Group opentsdb.TagSet
+}
+
 type Results struct {
 	Results ResultSlice
 	// If true, ungrouped joins from this set will be ignored.
@@ -201,7 +212,7 @@ type Results struct {
 	NaNValue *float64
 }
 
-type ResultSlice []*models.ExpressionResult
+type ResultSlice []*Result
 
 type ResultSliceByGroup ResultSlice
 
@@ -244,7 +255,7 @@ func (r ResultSliceByGroup) Len() int           { return len(r) }
 func (r ResultSliceByGroup) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (r ResultSliceByGroup) Less(i, j int) bool { return r[i].Group.String() < r[j].Group.String() }
 
-func (e *State) AddComputation(r *models.ExpressionResult, text string, value interface{}) {
+func (e *State) AddComputation(r *Result, text string, value interface{}) {
 	if !e.enableComputations {
 		return
 	}
@@ -253,14 +264,14 @@ func (e *State) AddComputation(r *models.ExpressionResult, text string, value in
 
 type Union struct {
 	models.Computations
-	A, B  models.Value
+	A, B  Value
 	Group opentsdb.TagSet
 }
 
 // wrap creates a new Result with a nil group and given value.
 func wrap(v float64) *Results {
 	return &Results{
-		Results: []*models.ExpressionResult{
+		Results: []*Result{
 			{
 				Value: Scalar(v),
 				Group: nil,
@@ -269,7 +280,7 @@ func wrap(v float64) *Results {
 	}
 }
 
-func (u *Union) ExtendComputations(o *models.ExpressionResult) {
+func (u *Union) ExtendComputations(o *Result) {
 	u.Computations = append(u.Computations, o.Computations...)
 }
 
@@ -280,8 +291,8 @@ func (e *State) union(a, b *Results, expression string) []*Union {
 	if len(a.Results) == 0 || len(b.Results) == 0 {
 		return us
 	}
-	am := make(map[*models.ExpressionResult]bool, len(a.Results))
-	bm := make(map[*models.ExpressionResult]bool, len(b.Results))
+	am := make(map[*Result]bool, len(a.Results))
+	bm := make(map[*Result]bool, len(b.Results))
 	for _, ra := range a.Results {
 		am[ra] = true
 	}
@@ -375,8 +386,8 @@ func (e *State) walkBinary(node *parse.BinaryNode, T miniprofiler.Timer) *Result
 	T.Step("walkBinary: "+node.OpStr, func(T miniprofiler.Timer) {
 		u := e.union(ar, br, node.String())
 		for _, v := range u {
-			var value models.Value
-			r := &models.ExpressionResult{
+			var value Value
+			r := &Result{
 				Group:        v.Group,
 				Computations: v.Computations,
 			}

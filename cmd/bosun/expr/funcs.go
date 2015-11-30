@@ -330,7 +330,7 @@ var builtins = map[string]parse.Func{
 
 func Epoch(e *State, T miniprofiler.Timer) (*Results, error) {
 	return &Results{
-		Results: []*models.ExpressionResult{
+		Results: []*Result{
 			{Value: Scalar(float64(e.now.Unix()))},
 		},
 	}, nil
@@ -384,14 +384,14 @@ func Duration(e *State, T miniprofiler.Timer, d string) (*Results, error) {
 		return nil, err
 	}
 	return &Results{
-		Results: []*models.ExpressionResult{
+		Results: []*Result{
 			{Value: Scalar(duration.Seconds())},
 		},
 	}, nil
 }
 
 func DropValues(e *State, T miniprofiler.Timer, series *Results, threshold *Results, dropFunction func(float64, float64) bool) (*Results, error) {
-	f := func(res *Results, s *models.ExpressionResult, floats []float64) error {
+	f := func(res *Results, s *Result, floats []float64) error {
 		nv := make(Series)
 		for k, v := range s.Value.Value().(Series) {
 			if !dropFunction(float64(v), floats[0]) {
@@ -436,13 +436,13 @@ func DropNA(e *State, T miniprofiler.Timer, series *Results) (*Results, error) {
 	return DropValues(e, T, series, fromScalar(0), dropFunction)
 }
 
-func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTags []string) ([]*models.ExpressionResult, error) {
+func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTags []string) ([]*Result, error) {
 	const parseErrFmt = "graphite ParseError (%s): %s"
 	if len(*s) == 0 {
 		return nil, fmt.Errorf(parseErrFmt, req.URL, "empty response")
 	}
 	seen := make(map[string]bool)
-	results := make([]*models.ExpressionResult, 0)
+	results := make([]*Result, 0)
 	for _, res := range *s {
 		// build tag set
 		tags := make(opentsdb.TagSet)
@@ -488,7 +488,7 @@ func parseGraphiteResponse(req *graphite.Request, s *graphite.Response, formatTa
 			t := time.Unix(unixTS, 0)
 			dps[t] = val
 		}
-		results = append(results, &models.ExpressionResult{
+		results = append(results, &Result{
 			Value: dps,
 			Group: tags,
 		})
@@ -531,7 +531,7 @@ func GraphiteBand(e *State, T miniprofiler.Timer, query, duration, period, forma
 				return
 			}
 			formatTags := strings.Split(format, ".")
-			var results []*models.ExpressionResult
+			var results []*Result
 			results, err = parseGraphiteResponse(req, &s, formatTags)
 			if err != nil {
 				return
@@ -647,7 +647,7 @@ func Window(e *State, T miniprofiler.Timer, query, duration, period string, num 
 		}
 		callResult := &Results{
 			Results: ResultSlice{
-				&models.ExpressionResult{
+				&Result{
 					Group: resp.Tags,
 					Value: values,
 				},
@@ -671,7 +671,7 @@ func Window(e *State, T miniprofiler.Timer, query, duration, period string, num 
 			}
 		}
 		if !found {
-			results.Results = append(results.Results, &models.ExpressionResult{
+			results.Results = append(results.Results, &Result{
 				Group: resp.Tags,
 				Value: Series{
 					minTime: fres,
@@ -718,7 +718,7 @@ func Band(e *State, T miniprofiler.Timer, query, duration, period string, num fl
 		}
 		if newarr {
 			values := make(Series)
-			a := &models.ExpressionResult{Group: res.Tags}
+			a := &Result{Group: res.Tags}
 			for k, v := range res.DPS {
 				i, e := strconv.ParseInt(k, 10, 64)
 				if e != nil {
@@ -827,7 +827,7 @@ func Query(e *State, T miniprofiler.Timer, query, sduration, eduration string) (
 			}
 			values[time.Unix(i, 0).UTC()] = float64(v)
 		}
-		r.Results = append(r.Results, &models.ExpressionResult{
+		r.Results = append(r.Results, &Result{
 			Value: values,
 			Group: res.Tags,
 		})
@@ -912,14 +912,14 @@ func change(dps Series, args ...float64) float64 {
 func fromScalar(f float64) *Results {
 	return &Results{
 		Results: ResultSlice{
-			&models.ExpressionResult{
+			&Result{
 				Value: Number(f),
 			},
 		},
 	}
 }
 
-func match(f func(res *Results, series *models.ExpressionResult, floats []float64) error, series *Results, numberSets ...*Results) (*Results, error) {
+func match(f func(res *Results, series *Result, floats []float64) error, series *Results, numberSets ...*Results) (*Results, error) {
 	res := *series
 	res.Results = nil
 	for _, s := range series.Results {
@@ -946,7 +946,7 @@ func match(f func(res *Results, series *models.ExpressionResult, floats []float6
 }
 
 func reduce(e *State, T miniprofiler.Timer, series *Results, F func(Series, ...float64) float64, args ...*Results) (*Results, error) {
-	f := func(res *Results, s *models.ExpressionResult, floats []float64) error {
+	f := func(res *Results, s *Result, floats []float64) error {
 		t := s.Value.(Series)
 		if len(t) == 0 {
 			return nil
@@ -1012,7 +1012,7 @@ func Count(e *State, T miniprofiler.Timer, query, sduration, eduration string) (
 		return
 	}
 	return &Results{
-		Results: []*models.ExpressionResult{
+		Results: []*Result{
 			{Value: Scalar(len(r.Results))},
 		},
 	}, nil
@@ -1254,7 +1254,7 @@ func Ungroup(e *State, T miniprofiler.Timer, d *Results) (*Results, error) {
 
 func Transpose(e *State, T miniprofiler.Timer, d *Results, gp string) (*Results, error) {
 	gps := strings.Split(gp, ",")
-	m := make(map[string]*models.ExpressionResult)
+	m := make(map[string]*Result)
 	for _, v := range d.Results {
 		ts := make(opentsdb.TagSet)
 		for k, v := range v.Group {
@@ -1265,7 +1265,7 @@ func Transpose(e *State, T miniprofiler.Timer, d *Results, gp string) (*Results,
 			}
 		}
 		if _, ok := m[ts.String()]; !ok {
-			m[ts.String()] = &models.ExpressionResult{
+			m[ts.String()] = &Result{
 				Group: ts,
 				Value: make(Series),
 			}

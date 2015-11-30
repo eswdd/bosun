@@ -231,7 +231,7 @@ func LSDateHistogram(e *State, T miniprofiler.Timer, index_root, keystring, filt
 		if len(series) == 0 {
 			return r, nil
 		}
-		r.Results = append(r.Results, &models.ExpressionResult{
+		r.Results = append(r.Results, &Result{
 			Value: series,
 			Group: make(opentsdb.TagSet),
 		})
@@ -268,7 +268,7 @@ func LSDateHistogram(e *State, T miniprofiler.Timer, index_root, keystring, filt
 			if len(series) == 0 {
 				return nil
 			}
-			r.Results = append(r.Results, &models.ExpressionResult{
+			r.Results = append(r.Results, &Result{
 				Value: series,
 				Group: tags.Copy(),
 			})

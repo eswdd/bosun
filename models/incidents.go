@@ -67,18 +67,10 @@ type Event struct {
 }
 
 type Result struct {
-	*ExpressionResult
-	Expr string
-}
-
-func (r *Result) Copy() *Result {
-	return &Result{r.ExpressionResult, r.Expr}
-}
-
-type ExpressionResult struct {
 	Computations
-	Value
+	Value float64
 	Group opentsdb.TagSet
+	Expr  string
 }
 
 type Computations []Computation
@@ -86,11 +78,6 @@ type Computations []Computation
 type Computation struct {
 	Text  string
 	Value interface{}
-}
-
-type Value interface {
-	Type() FuncType
-	Value() interface{}
 }
 
 type FuncType int

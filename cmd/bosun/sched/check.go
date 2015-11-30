@@ -610,8 +610,10 @@ Loop:
 			rh.Events[ak] = event
 		}
 		result := &models.Result{
-			ExpressionResult: r,
-			Expr:             e.String(),
+			Computations: r.Computations,
+			Value:        n,
+			Group:        r.Group,
+			Expr:         e.String(),
 		}
 		switch checkStatus {
 		case models.StWarning:

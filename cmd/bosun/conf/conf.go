@@ -1216,7 +1216,7 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 			if err != nil {
 				return nil, err
 			}
-			results.Results = append(results.Results, &models.ExpressionResult{
+			results.Results = append(results.Results, &expr.Result{
 				Value: expr.Number(num),
 				Group: tag,
 			})
@@ -1245,7 +1245,7 @@ func (c *Conf) Funcs() map[string]eparse.Func {
 			if err != nil {
 				return nil, err
 			}
-			results.Results = append(results.Results, &models.ExpressionResult{
+			results.Results = append(results.Results, &expr.Result{
 				Value: expr.Number(num),
 				Group: res.Group,
 			})
@@ -1371,7 +1371,7 @@ func (c *Conf) alert(s *expr.State, T miniprofiler.Timer, name, key string) (res
 				}
 			}
 			if !found {
-				res := models.ExpressionResult{
+				res := expr.Result{
 					Value: expr.Number(1),
 					Group: ak.Group(),
 				}
@@ -1389,7 +1389,7 @@ func (c *Conf) alert(s *expr.State, T miniprofiler.Timer, name, key string) (res
 				}
 			}
 			if !found {
-				res := models.ExpressionResult{
+				res := expr.Result{
 					Value: expr.Number(1),
 					Group: ak.Group(),
 				}
