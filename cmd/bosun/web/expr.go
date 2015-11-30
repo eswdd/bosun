@@ -85,7 +85,7 @@ func Expr(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (v inter
 	}
 	ret := struct {
 		Type    string
-		Results []*models.ExpressionResult
+		Results []*expr.Result
 		Queries map[string]opentsdb.Request
 	}{
 		e.Tree.Root.Return().String(),

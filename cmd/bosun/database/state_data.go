@@ -1,8 +1,7 @@
 package database
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -15,10 +14,10 @@ import (
 /*
 
 lastTouched: Hash of alert key to last touched time stamp
-incidentStates: Hash of incidentId to gob encoded state
+incidentById:{id} json encoded state
 
 openIncidents: Hash of alert key to incident id (to avoid duplicates)
-incidentState:{ak}: List of incidents for alert key
+incidents:{ak}: List of incidents for alert key
 
 */
 
@@ -28,7 +27,11 @@ const (
 )
 
 func incidentStateKey(id int64) string {
-	return fmt.Sprintf("incidentState:%d", id)
+	return fmt.Sprintf("incidentById:%d", id)
+}
+
+func incidentsForAlertKeyKey(ak models.AlertKey) string {
+	return fmt.Sprintf("incidents:%s", ak)
 }
 
 type StateDataAccess interface {
@@ -36,7 +39,7 @@ type StateDataAccess interface {
 
 	GetOpenIncident(ak models.AlertKey) (*models.IncidentState, error)
 	GetIncidentState(incidentId int64) (*models.IncidentState, error)
-	UpdateIncidentState(incidentId int64, s *models.IncidentState) error
+	UpdateIncidentState(s *models.IncidentState) error
 }
 
 func (d *dataAccess) State() StateDataAccess {
@@ -76,28 +79,45 @@ func (d *dataAccess) GetIncidentState(incidentId int64) (*models.IncidentState, 
 	if err != nil {
 		return nil, err
 	}
-	r := bytes.NewReader(b)
-	dec := gob.NewDecoder(r)
 	state := &models.IncidentState{}
-	if err = dec.Decode(state); err != nil {
+	if err = json.Unmarshal(b, state); err != nil {
 		return nil, err
 	}
 	return state, nil
 }
 
-func (d *dataAccess) UpdateIncidentState(incidentId int64, s *models.IncidentState) error {
+func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
 	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "UpdateIncident"})()
 	conn := d.GetConnection()
 	defer conn.Close()
 
-	buf := &bytes.Buffer{}
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(s)
+	//if id is still zero, assign new id.
+	if s.Id == 0 {
+		id, err := redis.Int64(conn.Do("INCR", "maxIncidentId"))
+		if err != nil {
+			return err
+		}
+		s.Id = id
+		_, err = conn.Do("LPUSH", incidentsForAlertKeyKey(s.AlertKey), s.Id)
+		if err != nil {
+			return err
+		}
+	}
+
+	var err error
+	if s.Open {
+		_, err = conn.Do("HSET", statesOpenIncidentsKey, s.AlertKey, s.Id)
+	} else {
+		_, err = conn.Do("HDEL", statesOpenIncidentsKey, s.AlertKey)
+	}
 	if err != nil {
-		fmt.Println("!!!", err)
 		return err
 	}
-	fmt.Println("UPDATE!!")
-	_, err = conn.Do("SET", incidentStateKey(incidentId), buf.Bytes())
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	_, err = conn.Do("SET", incidentStateKey(s.Id), data)
 	return err
 }

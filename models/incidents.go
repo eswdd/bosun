@@ -59,18 +59,18 @@ func (s *IncidentState) IsActive() bool {
 }
 
 type Event struct {
-	Warn, Crit  *Result
+	Warn, Crit  *Result `json:",omitempty"`
 	Status      Status
 	Time        time.Time
-	Unevaluated bool
 	IncidentId  uint64
+	Unevaluated bool
 }
 
 type Result struct {
-	Computations
-	Value float64
-	Group opentsdb.TagSet
-	Expr  string
+	Computations `json:",omitempty"`
+	Value        float64
+	Group        opentsdb.TagSet
+	Expr         string
 }
 
 type Computations []Computation
@@ -131,6 +131,22 @@ func (s Status) String() string {
 
 func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+func (s *Status) UnmarshalJSON(b []byte) error {
+	switch string(b) {
+	case `"normal"`:
+		*s = StNormal
+	case `"warning"`:
+		*s = StWarning
+	case `"critical"`:
+		*s = StCritical
+	case `"unknown"`:
+		*s = StUnknown
+	default:
+		*s = StNone
+	}
+	return nil
 }
 
 func (s Status) IsNormal() bool   { return s == StNormal }

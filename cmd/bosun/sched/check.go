@@ -39,8 +39,12 @@ func init() {
 }
 
 func NewIncident(ak models.AlertKey) *models.IncidentState {
-	//TODO:
-	return &models.IncidentState{}
+	s := &models.IncidentState{}
+	s.Start = time.Now()
+	s.AlertKey = ak
+	s.Alert = ak.Name()
+	s.Tags = ak.Group().Tags()
+	return s
 }
 
 type RunHistory struct {
@@ -95,30 +99,29 @@ func (s *Schedule) RunHistory(r *RunHistory) {
 }
 
 // RunHistory for a single alert key. Returns true if notifications were altered.
-func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]Silence) (bool, error) {
-	checkNotify := false
+func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]Silence) (checkNotify bool, err error) {
 	event.Time = r.Start
 	data := s.DataAccess.State()
-	err := data.TouchAlertKey(ak, time.Now())
+	err = data.TouchAlertKey(ak, time.Now())
 	if err != nil {
-		return checkNotify, err
+		return
 	}
 	// get existing open incident if exists
 	incident, err := data.GetOpenIncident(ak)
 	if err != nil {
-		return checkNotify, err
+		return
 	}
 
 	defer func() {
 		// save unless incident is new and closed (log alert)
 		if incident != nil && (incident.Id != 0 || incident.Open) {
-			data.UpdateIncidentState(incident.Id, incident)
+			data.UpdateIncidentState(incident)
 		}
 	}()
 
 	// If nothing is out of the ordinary we are done
 	if event.Status <= models.StNormal && incident == nil {
-		return checkNotify, nil
+		return
 	}
 
 	// if event is unevaluated, we are done also.
@@ -126,7 +129,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 		if incident != nil {
 			incident.Unevaluated = true
 		}
-		return checkNotify, err
+		return
 	}
 
 	shouldNotify := false
@@ -615,6 +618,7 @@ Loop:
 			Group:        r.Group,
 			Expr:         e.String(),
 		}
+		fmt.Println(r.Computations)
 		switch checkStatus {
 		case models.StWarning:
 			event.Warn = result
