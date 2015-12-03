@@ -375,53 +375,57 @@ func Backup(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (inter
 }
 
 func IncidentEvents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	id := r.FormValue("id")
-	if id == "" {
-		return nil, fmt.Errorf("id must be specified")
-	}
-	num, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	incident, events, actions, err := schedule.GetIncidentEvents(uint64(num))
-	if err != nil {
-		return nil, err
-	}
-	return struct {
-		Incident *models.Incident
-		Events   []models.Event
-		Actions  []models.Action
-	}{incident, events, actions}, nil
+	//TODO: Incident View
+	return nil, nil
+	//	id := r.FormValue("id")
+	//	if id == "" {
+	//		return nil, fmt.Errorf("id must be specified")
+	//	}
+	//	num, err := strconv.ParseUint(id, 10, 64)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	incident, events, actions, err := schedule.GetIncidentEvents(uint64(num))
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	return struct {
+	//		Incident *models.Incident
+	//		Events   []models.Event
+	//		Actions  []models.Action
+	//	}{incident, events, actions}, nil
 }
 
 func Incidents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	alert := r.FormValue("alert")
-	toTime := time.Now().UTC()
-	fromTime := toTime.Add(-14 * 24 * time.Hour) // 2 weeks
+	// TODO: Incident Search
+	return nil, nil
+	//	alert := r.FormValue("alert")
+	//	toTime := time.Now().UTC()
+	//	fromTime := toTime.Add(-14 * 24 * time.Hour) // 2 weeks
 
-	if from := r.FormValue("from"); from != "" {
-		t, err := time.Parse(tsdbFormatSecs, from)
-		if err != nil {
-			return nil, err
-		}
-		fromTime = t
-	}
-	if to := r.FormValue("to"); to != "" {
-		t, err := time.Parse(tsdbFormatSecs, to)
-		if err != nil {
-			return nil, err
-		}
-		toTime = t
-	}
-	incidents, err := schedule.GetIncidents(alert, fromTime, toTime)
-	if err != nil {
-		return nil, err
-	}
-	maxIncidents := 200
-	if len(incidents) > maxIncidents {
-		incidents = incidents[:maxIncidents]
-	}
-	return incidents, nil
+	//	if from := r.FormValue("from"); from != "" {
+	//		t, err := time.Parse(tsdbFormatSecs, from)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//		fromTime = t
+	//	}
+	//	if to := r.FormValue("to"); to != "" {
+	//		t, err := time.Parse(tsdbFormatSecs, to)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//		toTime = t
+	//	}
+	//	incidents, err := schedule.GetIncidents(alert, fromTime, toTime)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	maxIncidents := 200
+	//	if len(incidents) > maxIncidents {
+	//		incidents = incidents[:maxIncidents]
+	//	}
+	//	return incidents, nil
 }
 
 func Status(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {

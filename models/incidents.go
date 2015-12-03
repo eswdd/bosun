@@ -7,13 +7,6 @@ import (
 	"bosun.org/opentsdb"
 )
 
-type Incident struct {
-	Id       uint64
-	Start    time.Time
-	End      *time.Time
-	AlertKey AlertKey
-}
-
 type IncidentState struct {
 	Id       int64
 	Start    time.Time

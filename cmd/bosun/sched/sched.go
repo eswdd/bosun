@@ -635,10 +635,6 @@ func (s *Schedule) Action(user, message string, t models.ActionType, ak models.A
 	return nil
 }
 
-func (s *Schedule) createIncident(ak models.AlertKey, start time.Time) (*models.Incident, error) {
-	return s.DataAccess.Incidents().CreateIncident(ak, start)
-}
-
 type incidentList []*models.Incident
 
 func (i incidentList) Len() int { return len(i) }
@@ -649,60 +645,6 @@ func (i incidentList) Less(a int, b int) bool {
 	return i[a].AlertKey < i[b].AlertKey
 }
 func (i incidentList) Swap(a int, b int) { i[a], i[b] = i[b], i[a] }
-
-func (s *Schedule) GetIncidents(alert string, from, to time.Time) ([]*models.Incident, error) {
-
-	list, err := s.DataAccess.Incidents().GetIncidentsStartingInRange(from, to)
-	if err != nil {
-		return nil, err
-	}
-	incidents := []*models.Incident{}
-	for _, i := range list {
-		if alert != "" && i.AlertKey.Name() != alert {
-			continue
-		}
-		incidents = append(incidents, i)
-	}
-	return incidents, nil
-}
-
-func (s *Schedule) GetIncident(id uint64) (*models.Incident, error) {
-	i, err := s.DataAccess.Incidents().GetIncident(id)
-	if err != nil {
-		return nil, err
-	}
-	return i, nil
-}
-
-func (s *Schedule) GetIncidentEvents(id uint64) (*models.Incident, []models.Event, []models.Action, error) {
-	//	incident, err := s.DataAccess.Incidents().GetIncident(id)
-	//	if err != nil {
-	//		return nil, nil, nil, err
-	//	}
-	//list := []models.Event{}
-	//TODO:
-	//	state := s.GetStatus(incident.AlertKey)
-	//	if state == nil {
-	//		return incident, list, nil, nil
-	//	}
-	//	found := false
-	//	for _, e := range state.History {
-	//		if e.IncidentId == id {
-	//			found = true
-	//			list = append(list, e)
-	//		} else if found {
-	//			break
-	//		}
-	//	}
-	//	actions := []models.Action{}
-	//	for _, a := range state.Actions {
-	//		if a.Time.After(incident.Start) && (incident.End == nil || a.Time.Before(*incident.End) || a.Time.Equal(*incident.End)) {
-	//			actions = append(actions, a)
-	//		}
-	//	}
-	//	return incident, list, actions, nil
-	return nil, nil, nil, nil
-}
 
 type IncidentStatus struct {
 	IncidentID         int64

@@ -276,9 +276,6 @@ func migrateOldDataToRedis(db *bolt.DB, data database.DataAccess) error {
 	if err := migrateSearch(db, data); err != nil {
 		return err
 	}
-	if err := migrateIncidents(db, data); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -406,37 +403,6 @@ func migrateSearch(db *bolt.DB, data database.DataAccess) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func migrateIncidents(db *bolt.DB, data database.DataAccess) error {
-	migrated, err := isMigrated(db, "incidents")
-	if err != nil {
-		return err
-	}
-	if migrated {
-		return nil
-	}
-	slog.Info("migrating incidents")
-	incidents := map[uint64]*models.Incident{}
-	if err := decode(db, "incidents", &incidents); err != nil {
-		return err
-	}
-	max := uint64(0)
-	for k, v := range incidents {
-		data.Incidents().UpdateIncident(k, v)
-		if k > max {
-			max = k
-		}
-	}
-
-	if err = data.Incidents().SetMaxId(max); err != nil {
-		return err
-	}
-	if err = setMigrated(db, "incidents"); err != nil {
-		return err
-	}
-
 	return nil
 }
 
