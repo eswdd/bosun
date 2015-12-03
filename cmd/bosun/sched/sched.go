@@ -10,7 +10,7 @@ import (
 
 	"bosun.org/_third_party/github.com/MiniProfiler/go/miniprofiler"
 	"bosun.org/_third_party/github.com/boltdb/bolt"
-	//"bosun.org/_third_party/github.com/bradfitz/slice"
+	"bosun.org/_third_party/github.com/bradfitz/slice"
 	"bosun.org/_third_party/github.com/tatsushid/go-fastping"
 	"bosun.org/cmd/bosun/cache"
 	"bosun.org/cmd/bosun/conf"
@@ -317,18 +317,16 @@ func (states States) GroupSets(minGroup int) map[string]models.AlertKeys {
 	return groups
 }
 
-func (s *Schedule) GetOpenStates() States {
-	//TODO
-	return nil
-	//	s.Lock("GetOpenStates")
-	//	defer s.Unlock()
-	//	states := s.status.Copy()
-	//	for k, state := range states {
-	//		if !state.Open {
-	//			delete(states, k)
-	//		}
-	//	}
-	//	return states
+func (s *Schedule) GetOpenStates() (States, error) {
+	incidents, err := s.DataAccess.State().GetAllOpenIncidents()
+	if err != nil {
+		return nil, err
+	}
+	states := make(States, len(incidents))
+	for _, inc := range incidents {
+		states[inc.AlertKey] = inc
+	}
+	return states, nil
 }
 
 type StateGroup struct {
@@ -355,127 +353,116 @@ type StateGroups struct {
 }
 
 func (s *Schedule) MarshalGroups(T miniprofiler.Timer, filter string) (*StateGroups, error) {
-	//TODO:
-	return nil, nil
-	//	var silenced map[models.AlertKey]Silence
-	//	T.Step("Silenced", func(miniprofiler.Timer) {
-	//		silenced = s.Silenced()
-	//	})
-	//	var groups map[StateTuple]States
-	//	var err error
-	//	status := make(States)
-	//	t := StateGroups{
-	//		TimeAndDate: s.Conf.TimeAndDate,
-	//	}
-	//	t.FailingAlerts, t.UnclosedErrors = s.getErrorCounts()
-	//	s.Lock("MarshallGroups")
-	//	defer s.Unlock()
-	//	T.Step("Setup", func(miniprofiler.Timer) {
-	//		matches, err2 := makeFilter(filter)
-	//		if err2 != nil {
-	//			err = err2
-	//			return
-	//		}
-	//		for k, v := range s.status {
-	//			if !v.Open {
-	//				continue
-	//			}
-	//			a := s.Conf.Alerts[k.Name()]
-	//			if a == nil {
-	//				err = fmt.Errorf("unknown alert %s", k.Name())
-	//				return
-	//			}
-	//			if matches(s.Conf, a, v) {
-	//				status[k] = v
-	//			}
-	//		}
-
-	//	})
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	T.Step("GroupStates", func(T miniprofiler.Timer) {
-	//		groups = status.GroupStates(silenced)
-	//	})
-	//	T.Step("groups", func(T miniprofiler.Timer) {
-	//		for tuple, states := range groups {
-	//			var grouped []*StateGroup
-	//			switch tuple.Status {
-	//			case models.StWarning, models.StCritical, models.StUnknown:
-	//				var sets map[string]models.AlertKeys
-	//				T.Step(fmt.Sprintf("GroupSets (%d): %v", len(states), tuple), func(T miniprofiler.Timer) {
-	//					sets = states.GroupSets(s.Conf.MinGroupSize)
-	//				})
-	//				for name, group := range sets {
-	//					g := StateGroup{
-	//						Active:        tuple.Active,
-	//						Status:        tuple.Status,
-	//						CurrentStatus: tuple.CurrentStatus,
-	//						Silenced:      tuple.Silenced,
-	//						Subject:       fmt.Sprintf("%s - %s", tuple.Status, name),
-	//					}
-	//					for _, ak := range group {
-	//						st := s.status[ak].Copy()
-	//						// remove some of the larger bits of state to reduce wire size
-	//						st.Body = ""
-	//						st.EmailBody = []byte{}
-	//						if len(st.History) > 1 {
-	//							st.History = st.History[len(st.History)-1:]
-	//						}
-	//						if len(st.Actions) > 1 {
-	//							st.Actions = st.Actions[len(st.Actions)-1:]
-	//						}
-
-	//						g.Children = append(g.Children, &StateGroup{
-	//							Active:   tuple.Active,
-	//							Status:   tuple.Status,
-	//							Silenced: tuple.Silenced,
-	//							AlertKey: ak,
-	//							Alert:    ak.Name(),
-	//							Subject:  string(st.Subject),
-	//							Ago:      marshalTime(st.Last().Time),
-	//							State:    st,
-	//							IsError:  !s.AlertSuccessful(ak.Name()),
-	//						})
-	//					}
-	//					if len(g.Children) == 1 && g.Children[0].Subject != "" {
-	//						g.Subject = g.Children[0].Subject
-	//					}
-	//					grouped = append(grouped, &g)
-	//				}
-	//			default:
-	//				continue
-	//			}
-	//			if tuple.NeedAck {
-	//				t.Groups.NeedAck = append(t.Groups.NeedAck, grouped...)
-	//			} else {
-	//				t.Groups.Acknowledged = append(t.Groups.Acknowledged, grouped...)
-	//			}
-	//		}
-	//	})
-	//	T.Step("sort", func(T miniprofiler.Timer) {
-	//		gsort := func(grp []*StateGroup) func(i, j int) bool {
-	//			return func(i, j int) bool {
-	//				a := grp[i]
-	//				b := grp[j]
-	//				if a.Active && !b.Active {
-	//					return true
-	//				} else if !a.Active && b.Active {
-	//					return false
-	//				}
-	//				if a.Status != b.Status {
-	//					return a.Status > b.Status
-	//				}
-	//				if a.AlertKey != b.AlertKey {
-	//					return a.AlertKey < b.AlertKey
-	//				}
-	//				return a.Subject < b.Subject
-	//			}
-	//		}
-	//		slice.Sort(t.Groups.NeedAck, gsort(t.Groups.NeedAck))
-	//		slice.Sort(t.Groups.Acknowledged, gsort(t.Groups.Acknowledged))
-	//	})
-	//	return &t, nil
+	var silenced map[models.AlertKey]Silence
+	T.Step("Silenced", func(miniprofiler.Timer) {
+		silenced = s.Silenced()
+	})
+	var groups map[StateTuple]States
+	var err error
+	status := make(States)
+	t := StateGroups{
+		TimeAndDate: s.Conf.TimeAndDate,
+	}
+	t.FailingAlerts, t.UnclosedErrors = s.getErrorCounts()
+	T.Step("Setup", func(miniprofiler.Timer) {
+		matches, err2 := makeFilter(filter)
+		if err2 != nil {
+			err = err2
+			return
+		}
+		status2, err2 := s.GetOpenStates()
+		if err2 != nil {
+			err = err2
+			return
+		}
+		for k, v := range status2 {
+			a := s.Conf.Alerts[k.Name()]
+			if a == nil {
+				slog.Errorf("unknown alert %s", k.Name())
+				continue
+			}
+			if matches(s.Conf, a, v) {
+				status[k] = v
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	T.Step("GroupStates", func(T miniprofiler.Timer) {
+		groups = status.GroupStates(silenced)
+	})
+	T.Step("groups", func(T miniprofiler.Timer) {
+		for tuple, states := range groups {
+			var grouped []*StateGroup
+			switch tuple.Status {
+			case models.StWarning, models.StCritical, models.StUnknown:
+				var sets map[string]models.AlertKeys
+				T.Step(fmt.Sprintf("GroupSets (%d): %v", len(states), tuple), func(T miniprofiler.Timer) {
+					sets = states.GroupSets(s.Conf.MinGroupSize)
+				})
+				for name, group := range sets {
+					g := StateGroup{
+						Active:        tuple.Active,
+						Status:        tuple.Status,
+						CurrentStatus: tuple.CurrentStatus,
+						Silenced:      tuple.Silenced,
+						Subject:       fmt.Sprintf("%s - %s", tuple.Status, name),
+					}
+					for _, ak := range group {
+						st := status[ak]
+						st.Body = ""
+						st.EmailBody = nil
+						g.Children = append(g.Children, &StateGroup{
+							Active:   tuple.Active,
+							Status:   tuple.Status,
+							Silenced: tuple.Silenced,
+							AlertKey: ak,
+							Alert:    ak.Name(),
+							Subject:  string(st.Subject),
+							Ago:      marshalTime(st.Last().Time),
+							State:    st,
+							IsError:  !s.AlertSuccessful(ak.Name()),
+						})
+					}
+					if len(g.Children) == 1 && g.Children[0].Subject != "" {
+						g.Subject = g.Children[0].Subject
+					}
+					grouped = append(grouped, &g)
+				}
+			default:
+				continue
+			}
+			if tuple.NeedAck {
+				t.Groups.NeedAck = append(t.Groups.NeedAck, grouped...)
+			} else {
+				t.Groups.Acknowledged = append(t.Groups.Acknowledged, grouped...)
+			}
+		}
+	})
+	T.Step("sort", func(T miniprofiler.Timer) {
+		gsort := func(grp []*StateGroup) func(i, j int) bool {
+			return func(i, j int) bool {
+				a := grp[i]
+				b := grp[j]
+				if a.Active && !b.Active {
+					return true
+				} else if !a.Active && b.Active {
+					return false
+				}
+				if a.Status != b.Status {
+					return a.Status > b.Status
+				}
+				if a.AlertKey != b.AlertKey {
+					return a.AlertKey < b.AlertKey
+				}
+				return a.Subject < b.Subject
+			}
+		}
+		slice.Sort(t.Groups.NeedAck, gsort(t.Groups.NeedAck))
+		slice.Sort(t.Groups.Acknowledged, gsort(t.Groups.Acknowledged))
+	})
+	return &t, nil
 }
 
 func marshalTime(t time.Time) string {
@@ -718,7 +705,7 @@ func (s *Schedule) GetIncidentEvents(id uint64) (*models.Incident, []models.Even
 }
 
 type IncidentStatus struct {
-	IncidentID         uint64
+	IncidentID         int64
 	Active             bool
 	AlertKey           models.AlertKey
 	Status             models.Status

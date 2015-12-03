@@ -137,14 +137,12 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 		incident = NewIncident(ak)
 		shouldNotify = true
 	}
-
 	// set state.Result according to event result
 	if event.Crit != nil {
 		incident.Result = event.Crit
 	} else if event.Warn != nil {
 		incident.Result = event.Warn
 	}
-	event.IncidentId = uint64(incident.Id)
 	if event.Status > models.StNormal {
 		incident.LastAbnormalStatus = event.Status
 		incident.LastAbnormalTime = event.Time.UTC().Unix()
@@ -464,26 +462,24 @@ func (s *Schedule) findUnknownAlerts(now time.Time, alert string) []models.Alert
 	if time.Now().Sub(bosunStartupTime) < s.Conf.CheckFrequency {
 		return keys
 	}
-	s.Lock("FindUnknown")
-	// TODO:
-	//	for ak, st := range s.status {
-	//		name := ak.Name()
-	//		if name != alert || st.Forgotten || !s.AlertSuccessful(ak.Name()) {
-	//			continue
-	//		}
-	//		a := s.Conf.Alerts[name]
-	//		t := a.Unknown
-	//		if t == 0 {
-	//			t = s.Conf.CheckFrequency * 2 * time.Duration(a.RunEvery)
-	//		}
-	//		//TODO:
-	//		/*
-	//			if now.Sub(st.Touched) < t {
-	//				continue
-	//			}*/
-	//		keys = append(keys, ak)
-	//	}
-	s.Unlock()
+	if !s.AlertSuccessful(alert) {
+		return keys
+	}
+	a := s.Conf.Alerts[alert]
+	t := a.Unknown
+	if t == 0 {
+		t = s.Conf.CheckFrequency * 2 * time.Duration(a.RunEvery)
+	}
+	maxTouched := now.UTC().Unix() - int64(t.Seconds())
+	untouched, err := s.DataAccess.State().GetUntouchedSince(alert, maxTouched)
+	if err != nil {
+		slog.Errorf("Error finding unknown alerts for alert %s: %s.", alert, err)
+		return keys
+	}
+	for _, ak := range untouched {
+		//TODO: Forgotten should not add to this. Remove last touched entry when forgotten
+		keys = append(keys, ak)
+	}
 	return keys
 }
 

@@ -62,7 +62,6 @@ type Event struct {
 	Warn, Crit  *Result `json:",omitempty"`
 	Status      Status
 	Time        time.Time
-	IncidentId  uint64
 	Unevaluated bool
 }
 

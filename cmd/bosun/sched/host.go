@@ -21,7 +21,10 @@ func (s *Schedule) Host(filter string) (map[string]*HostData, error) {
 	for _, h := range allHosts {
 		hosts[h] = newHostData()
 	}
-	states := s.GetOpenStates()
+	states, err := s.GetOpenStates()
+	if err != nil {
+		return nil, err
+	}
 	silences := s.Silenced()
 	// These are all fetched by metric since that is how we store it in redis
 	// so this makes for the fastest response
@@ -601,7 +604,7 @@ func processHostIncidents(host *HostData, states States, silences map[models.Ale
 		}
 		_, silenced := silences[ak]
 		is := IncidentStatus{
-			IncidentID:         state.Last().IncidentId,
+			IncidentID:         state.Id,
 			Active:             state.IsActive(),
 			AlertKey:           state.AlertKey,
 			Status:             state.CurrentStatus,

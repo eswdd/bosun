@@ -109,7 +109,7 @@ func (c *Context) Rule() (string, error) {
 
 func (c *Context) Incident() string {
 	return c.schedule.Conf.MakeLink("/incident", &url.Values{
-		"id": []string{fmt.Sprint(c.Last().IncidentId)},
+		"id": []string{fmt.Sprint(c.Id)},
 	})
 }
 
