@@ -62,7 +62,7 @@ func makeFilter(filter string) (func(*conf.Conf, *conf.Alert, *models.IncidentSt
 			add(func(c *conf.Conf, a *conf.Alert, s *models.IncidentState) bool {
 				r := false
 				f := func(ns *conf.Notifications) {
-					for k := range ns.Get(c, s.Group) {
+					for k := range ns.Get(c, s.AlertKey.Group()) {
 						if strings.Contains(k, value) {
 							r = true
 							break

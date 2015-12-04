@@ -3,8 +3,6 @@ package models
 import (
 	"encoding/json"
 	"time"
-
-	"bosun.org/opentsdb"
 )
 
 type IncidentState struct {
@@ -61,7 +59,6 @@ type Event struct {
 type Result struct {
 	Computations `json:",omitempty"`
 	Value        float64
-	Group        opentsdb.TagSet
 	Expr         string
 }
 
@@ -177,6 +174,20 @@ func (a ActionType) String() string {
 
 func (a ActionType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.String())
+}
+
+func (a *ActionType) UnmarshalJSON(b []byte) error {
+	switch string(b) {
+	case `"Acknowledged"`:
+		*a = ActionAcknowledge
+	case `"Closed"`:
+		*a = ActionClose
+	case `"Forgotten"`:
+		*a = ActionForget
+	default:
+		*a = ActionNone
+	}
+	return nil
 }
 
 type Attachment struct {

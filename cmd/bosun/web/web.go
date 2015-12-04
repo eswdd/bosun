@@ -429,26 +429,29 @@ func Incidents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (in
 }
 
 func Status(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	return nil, nil
-	//	r.ParseForm()
-	//	type ExtStatus struct {
-	//		AlertName string
-	//		*models.IncidentState
-	//	}
-	//	m := make(map[string]ExtStatus)
-	//	for _, k := range r.Form["ak"] {
-	//		ak, err := models.ParseAlertKey(k)
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//		st := ExtStatus{State: schedule.GetStatus(ak)}
-	//		if st.State == nil {
-	//			return nil, fmt.Errorf("unknown alert key: %v", k)
-	//		}
-	//		st.AlertName = ak.Name()
-	//		m[k] = st
-	//	}
-	//	return m, nil
+	r.ParseForm()
+	type ExtStatus struct {
+		AlertName string
+		*models.IncidentState
+	}
+	m := make(map[string]ExtStatus)
+	for _, k := range r.Form["ak"] {
+		ak, err := models.ParseAlertKey(k)
+		if err != nil {
+			return nil, err
+		}
+		state, err := schedule.DataAccess.State().GetLatestIncident(ak)
+		if err != nil {
+			return nil, err
+		}
+		st := ExtStatus{IncidentState: state}
+		if st.IncidentState == nil {
+			return nil, fmt.Errorf("unknown alert key: %v", k)
+		}
+		st.AlertName = ak.Name()
+		m[k] = st
+	}
+	return m, nil
 }
 
 func Action(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {

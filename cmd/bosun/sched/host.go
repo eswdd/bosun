@@ -597,7 +597,7 @@ func (s *Schedule) Host(filter string) (map[string]*HostData, error) {
 
 func processHostIncidents(host *HostData, states States, silences map[models.AlertKey]Silence) {
 	for ak, state := range states {
-		if stateHost, ok := state.Group["host"]; !ok {
+		if stateHost, ok := state.AlertKey.Group()["host"]; !ok {
 			continue
 		} else if stateHost != host.Name {
 			continue

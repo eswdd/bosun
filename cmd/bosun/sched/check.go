@@ -2,6 +2,7 @@ package sched
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -138,9 +139,9 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 		shouldNotify = true
 	}
 	// set state.Result according to event result
-	if event.Crit != nil {
+	if event.Status == models.StCritical {
 		incident.Result = event.Crit
-	} else if event.Warn != nil {
+	} else if event.Status == models.StWarning {
 		incident.Result = event.Warn
 	}
 	if event.Status > models.StNormal {
@@ -169,6 +170,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	// On state increase, clear old notifications and notify current.
 	// Do nothing if state did not change.
 	notify := func(ns *conf.Notifications) {
+		log.Println("!!!", ns)
 		if a.Log {
 			lastLogTime := s.lastLogTimes[ak]
 			now := time.Now()
@@ -177,7 +179,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 			}
 			s.lastLogTimes[ak] = now
 		}
-		nots := ns.Get(s.Conf, incident.Group)
+		nots := ns.Get(s.Conf, incident.AlertKey.Group())
 		for _, n := range nots {
 			s.Notify(incident, n)
 			checkNotify = true
@@ -611,7 +613,6 @@ Loop:
 		result := &models.Result{
 			Computations: r.Computations,
 			Value:        n,
-			Group:        r.Group,
 			Expr:         e.String(),
 		}
 		fmt.Println(r.Computations)

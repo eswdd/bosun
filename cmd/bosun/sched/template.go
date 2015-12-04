@@ -64,7 +64,7 @@ func (s *Schedule) unknownData(t time.Time, name string, group models.AlertKeys)
 func (c *Context) Ack() string {
 	return c.schedule.Conf.MakeLink("/action", &url.Values{
 		"type": []string{"ack"},
-		"key":  []string{c.Alert.Name + c.Group.String()},
+		"key":  []string{c.Alert.Name + c.AlertKey.Group().String()},
 	})
 }
 
@@ -82,7 +82,7 @@ func (c *Context) Expr(v string) string {
 	p := url.Values{}
 	p.Add("date", c.runHistory.Start.Format(`2006-01-02`))
 	p.Add("time", c.runHistory.Start.Format(`15:04:05`))
-	p.Add("expr", base64.StdEncoding.EncodeToString([]byte(opentsdb.ReplaceTags(v, c.Group))))
+	p.Add("expr", base64.StdEncoding.EncodeToString([]byte(opentsdb.ReplaceTags(v, c.AlertKey.Group()))))
 	return c.schedule.Conf.MakeLink("/expr", &p)
 }
 
@@ -103,7 +103,7 @@ func (c *Context) Rule() (string, error) {
 	p.Add("alert", c.Alert.Name)
 	p.Add("fromDate", time.Format("2006-01-02"))
 	p.Add("fromTime", time.Format("15:04"))
-	p.Add("template_group", c.Group.Tags())
+	p.Add("template_group", c.Tags)
 	return c.schedule.Conf.MakeLink("/config", &p), nil
 }
 
@@ -182,7 +182,7 @@ func (s *Schedule) ExecuteBadTemplate(errs []error, rh *RunHistory, a *conf.Aler
 func (c *Context) evalExpr(e *expr.Expr, filter bool, series bool, autods int) (expr.ResultSlice, string, error) {
 	var err error
 	if filter {
-		e, err = expr.New(opentsdb.ReplaceTags(e.Text, c.Group), c.schedule.Conf.Funcs())
+		e, err = expr.New(opentsdb.ReplaceTags(e.Text, c.AlertKey.Group()), c.schedule.Conf.Funcs())
 		if err != nil {
 			return nil, "", err
 		}
@@ -217,7 +217,7 @@ func (c *Context) eval(v interface{}, filter bool, series bool, autods int) (res
 		return nil, "", fmt.Errorf("expected string, expression or resultslice, got %T (%v)", v, v)
 	}
 	if filter {
-		res = res.Filter(c.Group)
+		res = res.Filter(c.AlertKey.Group())
 	}
 	if series {
 		for _, k := range res {
@@ -231,7 +231,7 @@ func (c *Context) eval(v interface{}, filter bool, series bool, autods int) (res
 
 // Lookup returns the value for a key in the lookup table for the context's tagset.
 func (c *Context) Lookup(table, key string) (string, error) {
-	return c.LookupAll(table, key, c.Group)
+	return c.LookupAll(table, key, c.AlertKey.Group())
 }
 
 func (c *Context) LookupAll(table, key string, group interface{}) (string, error) {
@@ -253,7 +253,7 @@ func (c *Context) LookupAll(table, key string, group interface{}) (string, error
 	if v, ok := l.ToExpr().Get(key, t); ok {
 		return v, nil
 	}
-	return "", fmt.Errorf("no entry for key %v in table %v for tagset %v", key, table, c.Group)
+	return "", fmt.Errorf("no entry for key %v in table %v for tagset %v", key, table, c.AlertKey.Group())
 }
 
 // Eval takes a result or an expression which it evaluates to a result.
@@ -468,7 +468,7 @@ func (c *Context) HTTPPost(url, bodyType, data string) string {
 
 func (c *Context) LSQuery(index_root, filter, sduration, eduration string, size int) (interface{}, error) {
 	var ks []string
-	for k, v := range c.Group {
+	for k, v := range c.AlertKey.Group() {
 		ks = append(ks, k+":"+v)
 	}
 	return c.LSQueryAll(index_root, strings.Join(ks, ","), filter, sduration, eduration, size)

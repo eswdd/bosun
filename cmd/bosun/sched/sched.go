@@ -257,7 +257,7 @@ func (states States) GroupSets(minGroup int) map[string]models.AlertKeys {
 			if seen[s] {
 				continue
 			}
-			for k, v := range s.Group {
+			for k, v := range s.AlertKey.Group() {
 				counts[Pair{k, v}]++
 			}
 		}
@@ -280,7 +280,7 @@ func (states States) GroupSets(minGroup int) map[string]models.AlertKeys {
 			if seen[s] {
 				continue
 			}
-			if s.Group[pair.k] != pair.v {
+			if s.AlertKey.Group()[pair.k] != pair.v {
 				continue
 			}
 			seen[s] = true
@@ -570,81 +570,56 @@ func init() {
 }
 
 func (s *Schedule) Action(user, message string, t models.ActionType, ak models.AlertKey) error {
-	s.Lock("Action")
-	defer s.Unlock()
-	// TODO:
-	//st := s.status[ak]
-	//	if st == nil {
-	//		return fmt.Errorf("no such alert key: %v", ak)
-	//	}
-	//	ack := func() {
-	//		delete(s.Notifications, ak)
-	//		st.NeedAck = false
-	//	}
-	//	isUnknown := st.LastAbnormalStatus == models.StUnknown
-	//	timestamp := time.Now().UTC()
-	//	switch t {
-	//	case models.ActionAcknowledge:
-	//		if !st.NeedAck {
-	//			return fmt.Errorf("alert already acknowledged")
-	//		}
-	//		if !st.Open {
-	//			return fmt.Errorf("cannot acknowledge closed alert")
-	//		}
-	//		ack()
-	//	case models.ActionClose:
-	//		if st.NeedAck {
-	//			ack()
-	//		}
-	//		if st.IsActive() {
-	//			return fmt.Errorf("cannot close active alert")
-	//		}
-	//		st.Open = false
-	//		last := st.Last()
-	//		if last.IncidentId != 0 {
-	//			incident, err := s.DataAccess.Incidents().GetIncident(last.IncidentId)
-	//			if err != nil {
-	//				return err
-	//			}
-	//			incident.End = &timestamp
-	//			if err = s.DataAccess.Incidents().UpdateIncident(last.IncidentId, incident); err != nil {
-	//				return err
-	//			}
-
-	//		}
-	//	case models.ActionForget:
-	//		if !isUnknown {
-	//			return fmt.Errorf("can only forget unknowns")
-	//		}
-	//		if st.NeedAck {
-	//			ack()
-	//		}
-	//		st.Open = false
-	//		st.Forgotten = true
-	//		delete(s.status, ak)
-	//	default:
-	//		return fmt.Errorf("unknown action type: %v", t)
-	//	}
-	//TODO:
-	//	st.Action(user, message, t, timestamp)
-	// Would like to also track the alert group, but I believe this is impossible because any character
-	// that could be used as a delimiter could also be a valid tag key or tag value character
 	if err := collect.Add("actions", opentsdb.TagSet{"user": user, "alert": ak.Name(), "type": t.String()}, 1); err != nil {
 		slog.Errorln(err)
 	}
-	return nil
-}
-
-type incidentList []*models.Incident
-
-func (i incidentList) Len() int { return len(i) }
-func (i incidentList) Less(a int, b int) bool {
-	if i[a].Start.Before(i[b].Start) {
-		return true
+	st, err := s.DataAccess.State().GetLatestIncident(ak)
+	if err != nil {
+		return err
 	}
-	return i[a].AlertKey < i[b].AlertKey
+	if st == nil {
+		return fmt.Errorf("no such alert key: %v", ak)
+	}
+	ack := func() {
+		delete(s.Notifications, ak)
+		st.NeedAck = false
+	}
+	isUnknown := st.LastAbnormalStatus == models.StUnknown
+	timestamp := time.Now().UTC()
+	switch t {
+	case models.ActionAcknowledge:
+		if !st.NeedAck {
+			return fmt.Errorf("alert already acknowledged")
+		}
+		if !st.Open {
+			return fmt.Errorf("cannot acknowledge closed alert")
+		}
+		ack()
+	case models.ActionClose:
+		if st.NeedAck {
+			ack()
+		}
+		if st.IsActive() {
+			return fmt.Errorf("cannot close active alert")
+		}
+		st.Open = false
+		st.End = &timestamp
+	case models.ActionForget:
+		if !isUnknown {
+			return fmt.Errorf("can only forget unknowns")
+		}
+		return s.DataAccess.State().Forget(ak)
+	default:
+		return fmt.Errorf("unknown action type: %v", t)
+	}
+	st.Actions = append(st.Actions, models.Action{
+		Message: message,
+		Time:    timestamp,
+		Type:    t,
+		User:    user,
+	})
+	return s.DataAccess.State().UpdateIncidentState(st)
 }
-func (i incidentList) Swap(a int, b int) { i[a], i[b] = i[b], i[a] }
 
 type IncidentStatus struct {
 	IncidentID         int64

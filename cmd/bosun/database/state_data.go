@@ -47,9 +47,12 @@ type StateDataAccess interface {
 	GetUntouchedSince(alert string, time int64) ([]models.AlertKey, error)
 
 	GetOpenIncident(ak models.AlertKey) (*models.IncidentState, error)
+	GetLatestIncident(ak models.AlertKey) (*models.IncidentState, error)
 	GetAllOpenIncidents() ([]*models.IncidentState, error)
 	GetIncidentState(incidentId int64) (*models.IncidentState, error)
 	UpdateIncidentState(s *models.IncidentState) error
+
+	Forget(ak models.AlertKey) error
 }
 
 func (d *dataAccess) State() StateDataAccess {
@@ -86,7 +89,20 @@ func (d *dataAccess) GetOpenIncident(ak models.AlertKey) (*models.IncidentState,
 	conn := d.GetConnection()
 	defer conn.Close()
 
-	// Get latest incident for alert key and see if it is open
+	inc, err := d.getLatestIncident(ak, conn)
+	if err != nil {
+		return nil, err
+	}
+	if inc == nil {
+		return nil, nil
+	}
+	if inc.Open {
+		return inc, nil
+	}
+	return nil, nil
+}
+
+func (d *dataAccess) getLatestIncident(ak models.AlertKey, conn redis.Conn) (*models.IncidentState, error) {
 	id, err := redis.Int64(conn.Do("LINDEX", incidentsForAlertKeyKey(ak), 0))
 	if err != nil {
 		if err == redis.ErrNil {
@@ -98,10 +114,15 @@ func (d *dataAccess) GetOpenIncident(ak models.AlertKey) (*models.IncidentState,
 	if err != nil {
 		return nil, err
 	}
-	if inc.Open {
-		return inc, nil
-	}
-	return nil, nil
+	return inc, nil
+}
+
+func (d *dataAccess) GetLatestIncident(ak models.AlertKey) (*models.IncidentState, error) {
+	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "GetLatestIncident"})()
+	conn := d.GetConnection()
+	defer conn.Close()
+
+	return d.getLatestIncident(ak, conn)
 }
 
 func (d *dataAccess) GetAllOpenIncidents() ([]*models.IncidentState, error) {
@@ -110,12 +131,8 @@ func (d *dataAccess) GetAllOpenIncidents() ([]*models.IncidentState, error) {
 	defer conn.Close()
 
 	// get open ids
-	vals, err := redis.Values(conn.Do("SMEMBERS", statesOpenIncidentsKey))
+	ids, err := int64s(conn.Do("SMEMBERS", statesOpenIncidentsKey))
 	if err != nil {
-		return nil, err
-	}
-	ids := []int64{}
-	if err = redis.ScanSlice(vals, &ids); err != nil {
 		return nil, err
 	}
 
@@ -204,6 +221,60 @@ func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
 		}
 		return nil
 	})
+}
+
+// The nucular option. Delete all we know about this alert key
+func (d *dataAccess) Forget(ak models.AlertKey) error {
+	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "Forget"})()
+	conn := d.GetConnection()
+	defer conn.Close()
+
+	alert := ak.Name()
+	return d.transact(conn, func() error {
+		// last touched.
+		if _, err := conn.Do("HDEL", statesLastTouchedKey(alert), ak); err != nil {
+			return err
+		}
+		// unknown/uneval sets
+		if _, err := conn.Do("SREM", statesUnknownKey(alert), ak); err != nil {
+			return err
+		}
+		if _, err := conn.Do("SREM", statesUnevalKey(alert), ak); err != nil {
+			return err
+		}
+		//all incidents (including open set)
+		ids, err := int64s(conn.Do("LRANGE", incidentsForAlertKeyKey(ak), 0, -1))
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if _, err = conn.Do("SREM", statesOpenIncidentsKey, id); err != nil {
+				return err
+			}
+			if _, err = conn.Do("DEL", incidentStateKey(id)); err != nil {
+				return err
+			}
+		}
+		if _, err := conn.Do(d.LCLEAR(), incidentsForAlertKeyKey(ak)); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func int64s(reply interface{}, err error) ([]int64, error) {
+	if err != nil {
+		return nil, err
+	}
+	ints := []int64{}
+	values, err := redis.Values(reply, err)
+	if err != nil {
+		return ints, err
+	}
+	if err := redis.ScanSlice(values, &ints); err != nil {
+		return ints, err
+	}
+	return ints, nil
 }
 
 func (d *dataAccess) transact(conn redis.Conn, f func() error) error {
