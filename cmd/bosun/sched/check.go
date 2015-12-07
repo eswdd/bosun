@@ -438,8 +438,8 @@ func (s *Schedule) CollectStates() {
 	}
 }
 
-func (r *RunHistory) GetUnknownAndUnevaluatedAlertKeys(alert string) (unknown, uneval []models.AlertKey) {
-	unknown, uneval, err := r.schedule.DataAccess.State().GetUnknownAndUnevalAlertKeys(alert)
+func (s *Schedule) GetUnknownAndUnevaluatedAlertKeys(alert string) (unknown, uneval []models.AlertKey) {
+	unknown, uneval, err := s.DataAccess.State().GetUnknownAndUnevalAlertKeys(alert)
 	if err != nil {
 		slog.Errorf("Error getting unknown/unevaluated alert keys: %s", err)
 		return nil, nil
@@ -554,7 +554,7 @@ func (s *Schedule) executeExpr(T miniprofiler.Timer, rh *RunHistory, a *conf.Ale
 	if e == nil {
 		return nil, nil
 	}
-	results, _, err := e.Execute(rh.Context, rh.GraphiteContext, rh.Logstash, rh.InfluxConfig, rh.Cache, T, rh.Start, 0, a.UnjoinedOK, s.Search, s.Conf.AlertSquelched(a), rh)
+	results, _, err := e.Execute(rh.Context, rh.GraphiteContext, rh.Logstash, rh.InfluxConfig, rh.Cache, T, rh.Start, 0, a.UnjoinedOK, s.Search, s.Conf.AlertSquelched(a), s)
 	return results, err
 }
 

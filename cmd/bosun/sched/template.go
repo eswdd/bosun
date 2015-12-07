@@ -190,7 +190,7 @@ func (c *Context) evalExpr(e *expr.Expr, filter bool, series bool, autods int) (
 	if series && e.Root.Return() != models.TypeSeriesSet {
 		return nil, "", fmt.Errorf("need a series, got %T (%v)", e, e)
 	}
-	res, _, err := e.Execute(c.runHistory.Context, c.runHistory.GraphiteContext, c.runHistory.Logstash, c.runHistory.InfluxConfig, c.runHistory.Cache, nil, c.runHistory.Start, autods, c.Alert.UnjoinedOK, c.schedule.Search, c.schedule.Conf.AlertSquelched(c.Alert), c.runHistory)
+	res, _, err := e.Execute(c.runHistory.Context, c.runHistory.GraphiteContext, c.runHistory.Logstash, c.runHistory.InfluxConfig, c.runHistory.Cache, nil, c.runHistory.Start, autods, c.Alert.UnjoinedOK, c.schedule.Search, c.schedule.Conf.AlertSquelched(c.Alert), c.schedule)
 	if err != nil {
 		return nil, "", fmt.Errorf("%s: %v", e, err)
 	}
