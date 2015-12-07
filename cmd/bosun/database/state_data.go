@@ -53,6 +53,7 @@ type StateDataAccess interface {
 	UpdateIncidentState(s *models.IncidentState) error
 
 	Forget(ak models.AlertKey) error
+	GetUnknownAndUnevalAlertKeys(alert string) ([]models.AlertKey, []models.AlertKey, error)
 }
 
 func (d *dataAccess) State() StateDataAccess {
@@ -260,6 +261,32 @@ func (d *dataAccess) Forget(ak models.AlertKey) error {
 		}
 		return nil
 	})
+}
+
+func (d *dataAccess) GetUnknownAndUnevalAlertKeys(alert string) ([]models.AlertKey, []models.AlertKey, error) {
+	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "GetUnknownAndUnevalAlertKeys"})()
+	conn := d.GetConnection()
+	defer conn.Close()
+
+	unknownS, err := redis.Strings(conn.Do("SMEMBERS", statesUnknownKey(alert)))
+	if err != nil {
+		return nil, nil, err
+	}
+	unknown := make([]models.AlertKey, len(unknownS))
+	for i, u := range unknownS {
+		unknown[i] = models.AlertKey(u)
+	}
+
+	unEvals, err := redis.Strings(conn.Do("SMEMBERS", statesUnknownKey(alert)))
+	if err != nil {
+		return nil, nil, err
+	}
+	unevals := make([]models.AlertKey, len(unEvals))
+	for i, u := range unEvals {
+		unevals[i] = models.AlertKey(u)
+	}
+
+	return unknown, unevals, nil
 }
 
 func int64s(reply interface{}, err error) ([]int64, error) {

@@ -439,21 +439,11 @@ func (s *Schedule) CollectStates() {
 }
 
 func (r *RunHistory) GetUnknownAndUnevaluatedAlertKeys(alert string) (unknown, uneval []models.AlertKey) {
-	unknown = []models.AlertKey{}
-	uneval = []models.AlertKey{}
-	r.schedule.Lock("GetUnknownUneval")
-	//TODO:
-	//	for ak, st := range r.schedule.status {
-	//		if ak.Name() != alert {
-	//			continue
-	//		}
-	//		if st.Last().Status == models.StUnknown {
-	//			unknown = append(unknown, ak)
-	//		} else if st.Unevaluated {
-	//			uneval = append(uneval, ak)
-	//		}
-	//	}
-	r.schedule.Unlock()
+	unknown, uneval, err := r.schedule.DataAccess.State().GetUnknownAndUnevalAlertKeys(alert)
+	if err != nil {
+		slog.Errorf("Error getting unknown/unevaluated alert keys: %s", err)
+		return nil, nil
+	}
 	return unknown, uneval
 }
 
@@ -479,7 +469,6 @@ func (s *Schedule) findUnknownAlerts(now time.Time, alert string) []models.Alert
 		return keys
 	}
 	for _, ak := range untouched {
-		//TODO: Forgotten should not add to this. Remove last touched entry when forgotten
 		keys = append(keys, ak)
 	}
 	return keys
