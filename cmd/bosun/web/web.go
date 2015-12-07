@@ -380,25 +380,15 @@ func Backup(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (inter
 }
 
 func IncidentEvents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	//TODO: Incident View
-	return nil, nil
-	//	id := r.FormValue("id")
-	//	if id == "" {
-	//		return nil, fmt.Errorf("id must be specified")
-	//	}
-	//	num, err := strconv.ParseUint(id, 10, 64)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	incident, events, actions, err := schedule.GetIncidentEvents(uint64(num))
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	return struct {
-	//		Incident *models.Incident
-	//		Events   []models.Event
-	//		Actions  []models.Action
-	//	}{incident, events, actions}, nil
+	id := r.FormValue("id")
+	if id == "" {
+		return nil, fmt.Errorf("id must be specified")
+	}
+	num, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return schedule.DataAccess.State().GetIncidentState(num)
 }
 
 func Incidents(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interface{}, error) {
