@@ -489,7 +489,10 @@ func Action(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (inter
 		return nil, errs
 	}
 	if data.Notify && len(successful) != 0 {
-		schedule.ActionNotify(at, data.User, data.Message, successful)
+		err := schedule.ActionNotify(at, data.User, data.Message, successful)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return nil, nil
 }

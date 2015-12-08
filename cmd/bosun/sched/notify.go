@@ -265,9 +265,11 @@ func init() {
 	actionNotificationBodyTemplate = htemplate.Must(htemplate.New("").Parse(body))
 }
 
-func (s *Schedule) ActionNotify(at models.ActionType, user, message string, aks []models.AlertKey) {
-	groupings := s.groupActionNotifications(aks)
-
+func (s *Schedule) ActionNotify(at models.ActionType, user, message string, aks []models.AlertKey) error {
+	groupings, err := s.groupActionNotifications(aks)
+	if err != nil {
+		return err
+	}
 	for notification, states := range groupings {
 		incidents := []*models.IncidentState{}
 		for _, state := range states {
@@ -290,33 +292,36 @@ func (s *Schedule) ActionNotify(at models.ActionType, user, message string, aks 
 
 		notification.Notify(subject, buf.String(), []byte(subject), buf.Bytes(), s.Conf, "actionNotification")
 	}
+	return nil
 }
 
-func (s *Schedule) groupActionNotifications(aks []models.AlertKey) map[*conf.Notification][]*models.IncidentState {
+func (s *Schedule) groupActionNotifications(aks []models.AlertKey) (map[*conf.Notification][]*models.IncidentState, error) {
 	groupings := make(map[*conf.Notification][]*models.IncidentState)
-	//TODO:
-	//	for _, ak := range aks {
-	//		alert := s.Conf.Alerts[ak.Name()]
-	//		status := s.GetStatus(ak)
-	//		if alert == nil || status == nil {
-	//			continue
-	//		}
-	//		var n *conf.Notifications
-	//		if status.Status() == models.StWarning {
-	//			n = alert.WarnNotification
-	//		} else {
-	//			n = alert.CritNotification
-	//		}
-	//		if n == nil {
-	//			continue
-	//		}
-	//		nots := n.Get(s.Conf, ak.Group())
-	//		for _, not := range nots {
-	//			if !not.RunOnActions {
-	//				continue
-	//			}
-	//			groupings[not] = append(groupings[not], status)
-	//		}
-	//	}
-	return groupings
+	for _, ak := range aks {
+		alert := s.Conf.Alerts[ak.Name()]
+		status, err := s.DataAccess.State().GetLatestIncident(ak)
+		if err != nil {
+			return nil, err
+		}
+		if alert == nil || status == nil {
+			continue
+		}
+		var n *conf.Notifications
+		if status.WorstStatus == models.StWarning || alert.CritNotification == nil {
+			n = alert.WarnNotification
+		} else {
+			n = alert.CritNotification
+		}
+		if n == nil {
+			continue
+		}
+		nots := n.Get(s.Conf, ak.Group())
+		for _, not := range nots {
+			if !not.RunOnActions {
+				continue
+			}
+			groupings[not] = append(groupings[not], status)
+		}
+	}
+	return groupings, nil
 }
