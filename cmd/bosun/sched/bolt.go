@@ -44,7 +44,6 @@ const (
 	dbBucket           = "bindata"
 	dbConfigTextBucket = "configText"
 	dbNotifications    = "notifications"
-	dbSilence          = "silence"
 )
 
 func (s *Schedule) save() {
@@ -54,7 +53,6 @@ func (s *Schedule) save() {
 	s.Lock("Save")
 	store := map[string]interface{}{
 		dbNotifications: s.Notifications,
-		dbSilence:       s.Silence,
 	}
 	tostore := make(map[string][]byte)
 	for name, data := range store {
@@ -139,9 +137,6 @@ func (s *Schedule) RestoreState() error {
 	notifications := make(map[models.AlertKey]map[string]time.Time)
 	if err := decode(db, dbNotifications, &notifications); err != nil {
 		slog.Errorln(dbNotifications, err)
-	}
-	if err := decode(db, dbSilence, &s.Silence); err != nil {
-		slog.Errorln(dbSilence, err)
 	}
 
 	//status := make(States)
@@ -276,6 +271,9 @@ func migrateOldDataToRedis(db *bolt.DB, data database.DataAccess) error {
 	if err := migrateSearch(db, data); err != nil {
 		return err
 	}
+	if err := migrateSilence(db, data); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -402,6 +400,29 @@ func migrateSearch(db *bolt.DB, data database.DataAccess) error {
 		if err = setMigrated(db, "search"); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func migrateSilence(db *bolt.DB, data database.DataAccess) error {
+	migrated, err := isMigrated(db, "silence")
+	if err != nil {
+		return err
+	}
+	if migrated {
+		return nil
+	}
+	slog.Info("migrating silence")
+	silence := map[string]*models.Silence{}
+	if err := decode(db, "silence", &silence); err != nil {
+		return err
+	}
+	for _, v := range silence {
+		v.TagString = v.Tags.Tags()
+		data.Silence().AddSilence(v)
+	}
+	if err = setMigrated(db, "silence"); err != nil {
+		return err
 	}
 	return nil
 }

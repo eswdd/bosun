@@ -100,7 +100,7 @@ func (s *Schedule) RunHistory(r *RunHistory) {
 }
 
 // RunHistory for a single alert key. Returns true if notifications were altered.
-func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]Silence) (checkNotify bool, err error) {
+func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]models.Silence) (checkNotify bool, err error) {
 	event.Time = r.Start
 	data := s.DataAccess.State()
 	err = data.TouchAlertKey(ak, time.Now())

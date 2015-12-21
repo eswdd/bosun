@@ -35,9 +35,8 @@ type Schedule struct {
 	mutexAquired  time.Time
 	mutexWaitTime int64
 
-	Conf    *conf.Conf
-	Silence map[string]*Silence
-	Group   map[time.Time]models.AlertKeys
+	Conf  *conf.Conf
+	Group map[time.Time]models.AlertKeys
 
 	Search *search.Search
 
@@ -67,7 +66,6 @@ func (s *Schedule) Init(c *conf.Conf) error {
 	//be avoided.
 	var err error
 	s.Conf = c
-	s.Silence = make(map[string]*Silence)
 	s.Group = make(map[time.Time]models.AlertKeys)
 	s.pendingUnknowns = make(map[*conf.Notification][]*models.IncidentState)
 	s.lastLogTimes = make(map[models.AlertKey]time.Time)
@@ -224,7 +222,7 @@ type StateTuple struct {
 }
 
 // GroupStates groups by NeedAck, Active, Status, and Silenced.
-func (states States) GroupStates(silenced map[models.AlertKey]Silence) map[StateTuple]States {
+func (states States) GroupStates(silenced map[models.AlertKey]models.Silence) map[StateTuple]States {
 	r := make(map[StateTuple]States)
 	for ak, st := range states {
 		_, sil := silenced[ak]
@@ -353,7 +351,7 @@ type StateGroups struct {
 }
 
 func (s *Schedule) MarshalGroups(T miniprofiler.Timer, filter string) (*StateGroups, error) {
-	var silenced map[models.AlertKey]Silence
+	var silenced map[models.AlertKey]models.Silence
 	T.Step("Silenced", func(miniprofiler.Timer) {
 		silenced = s.Silenced()
 	})

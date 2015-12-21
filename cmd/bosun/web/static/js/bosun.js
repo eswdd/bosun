@@ -1691,6 +1691,18 @@ var Query = (function () {
         this.tags = q && q.tags || new TagSet;
         this.gbFilters = q && q.gbFilters || new FilterMap;
         this.nGbFilters = q && q.nGbFilters || new FilterMap;
+        var that = this;
+        // Copy tags with values to group by filters so old links work
+        _.each(this.tags, function (v, k) {
+            if (v === "") {
+                return;
+            }
+            var f = new (Filter);
+            f.filter = v;
+            f.groupBy = true;
+            f.tagk = k;
+            that.gbFilters[k] = f;
+        });
         this.setFilters();
         this.setDs();
         this.setDerivative();
@@ -1968,6 +1980,9 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
             angular.forEach($scope.query_p, function (q, index) {
                 var m = q.metric_tags;
                 if (!m) {
+                    return;
+                }
+                if (!r.queries[index]) {
                     return;
                 }
                 angular.forEach(q.tags, function (key, tag) {
@@ -2530,6 +2545,8 @@ bosunControllers.controller('SilenceCtrl', ['$scope', '$http', '$location', '$ro
         $scope.confirm = function () {
             $scope.error = null;
             $scope.testSilences = null;
+            $scope.edit = null;
+            $location.search('edit', null);
             state.confirm = 'true';
             $http.post('/api/silence/set', state)
                 .error(function (error) {
