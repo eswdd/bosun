@@ -136,7 +136,9 @@ func (d *dataAccess) GetAllOpenIncidents() ([]*models.IncidentState, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	// get all incident json keys
 	args := make([]interface{}, 0, len(ids))
 	for _, id := range ids {
@@ -180,7 +182,6 @@ func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
 	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "UpdateIncident"})()
 	conn := d.GetConnection()
 	defer conn.Close()
-
 	return d.transact(conn, func() error {
 		//if id is still zero, assign new id.
 		if s.Id == 0 {

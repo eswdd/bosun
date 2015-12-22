@@ -119,12 +119,10 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 			data.UpdateIncidentState(incident)
 		}
 	}()
-
 	// If nothing is out of the ordinary we are done
 	if event.Status <= models.StNormal && incident == nil {
 		return
 	}
-
 	// if event is unevaluated, we are done also.
 	if event.Unevaluated {
 		if incident != nil {

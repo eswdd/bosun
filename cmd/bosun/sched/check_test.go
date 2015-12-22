@@ -157,33 +157,33 @@ func TestIncidentIds(t *testing.T) {
 			ak: {Status: models.StWarning},
 		},
 	}
-	expect := func(id uint64) {
-		if s.status[ak].Last().IncidentId != id {
-			t.Fatalf("Expeted incident id %d. Got %d.", id, s.status[ak].Last().IncidentId)
+	expect := func(id int64) {
+		incident, err := s.DataAccess.State().GetLatestIncident(ak)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if incident.Id != id {
+			t.Fatalf("Expeted incident id %d. Got %d.", id, incident.Id)
 		}
 	}
 	s.RunHistory(r)
 	expect(1)
 
 	r.Events[ak].Status = models.StNormal
-	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(1)
 
 	r.Events[ak].Status = models.StWarning
-	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(1)
 
 	r.Events[ak].Status = models.StNormal
-	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	err = s.Action("", "", models.ActionClose, ak)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.Events[ak].Status = models.StWarning
-	r.Events[ak].IncidentId = 0
 	s.RunHistory(r)
 	expect(2)
 }
@@ -422,8 +422,12 @@ Loop:
 	if !gotB {
 		t.Errorf("didn't get expected b")
 	}
-	for ak, st := range s.status {
-		switch ak {
+	status, err := s.DataAccess.State().GetAllOpenIncidents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, st := range status {
+		switch st.AlertKey {
 		case "a{}":
 			if !st.Open {
 				t.Errorf("expected a to be open")
@@ -433,57 +437,7 @@ Loop:
 				t.Errorf("expected b to be closed")
 			}
 		default:
-			t.Errorf("unexpected alert key %s", ak)
+			t.Errorf("unexpected alert key %s", st.AlertKey)
 		}
 	}
-}
-
-// TestCheckCritUnknownEmpty checks that if an alert goes normal -> crit ->
-// unknown, it's body and subject are empty. This is because we should not
-// keep around the crit template renders if we are unknown.
-func TestCheckCritUnknownEmpty(t *testing.T) {
-	defer setup()()
-	c, err := conf.New("", `
-		template t {
-			subject = 1
-			body = 2
-		}
-		alert a {
-			crit = 1
-			template = t
-		}
-	`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, _ := initSched(c)
-	ak := models.NewAlertKey("a", nil)
-	r := &RunHistory{
-		Events: map[models.AlertKey]*models.Event{
-			ak: {Status: models.StNormal},
-		},
-	}
-	verify := func(empty bool) {
-		st := s.GetStatus(ak)
-		if empty {
-			if st.Body != "" || st.Subject != "" {
-				t.Fatalf("expected empty body and subject")
-			}
-		} else {
-			if st.Body != "<html><head></head><body>2</body></html>" || st.Subject != "1" {
-				t.Fatalf("expected body and subject")
-			}
-		}
-	}
-	s.RunHistory(r)
-	verify(true)
-	r.Events[ak].Status = models.StCritical
-	s.RunHistory(r)
-	verify(false)
-	r.Events[ak].Status = models.StUnknown
-	s.RunHistory(r)
-	verify(true)
-	r.Events[ak].Status = models.StNormal
-	s.RunHistory(r)
-	verify(true)
 }
