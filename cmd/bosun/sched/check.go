@@ -602,7 +602,6 @@ Loop:
 			Value:        n,
 			Expr:         e.String(),
 		}
-		fmt.Println(r.Computations)
 		switch checkStatus {
 		case models.StWarning:
 			event.Warn = result
