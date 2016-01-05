@@ -112,11 +112,10 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	if err != nil {
 		return
 	}
-
 	defer func() {
 		// save unless incident is new and closed (log alert)
 		if incident != nil && (incident.Id != 0 || incident.Open) {
-			data.UpdateIncidentState(incident)
+			err = data.UpdateIncidentState(incident)
 		}
 	}()
 	// If nothing is out of the ordinary we are done
@@ -142,6 +141,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	} else if event.Status == models.StWarning {
 		incident.Result = event.Warn
 	}
+
 	if event.Status > models.StNormal {
 		incident.LastAbnormalStatus = event.Status
 		incident.LastAbnormalTime = event.Time.UTC().Unix()

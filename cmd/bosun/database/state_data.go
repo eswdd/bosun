@@ -306,7 +306,7 @@ func int64s(reply interface{}, err error) ([]int64, error) {
 }
 
 func (d *dataAccess) transact(conn redis.Conn, f func() error) error {
-	if d.isRedis {
+	if !d.isRedis {
 		return f()
 	}
 	if _, err := conn.Do("MULTI"); err != nil {
