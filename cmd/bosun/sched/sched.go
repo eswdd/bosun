@@ -222,10 +222,10 @@ type StateTuple struct {
 }
 
 // GroupStates groups by NeedAck, Active, Status, and Silenced.
-func (states States) GroupStates(silenced map[models.AlertKey]models.Silence) map[StateTuple]States {
+func (states States) GroupStates(silenced SilenceTester) map[StateTuple]States {
 	r := make(map[StateTuple]States)
 	for ak, st := range states {
-		_, sil := silenced[ak]
+		sil := silenced(ak) != nil
 		t := StateTuple{
 			NeedAck:       st.NeedAck,
 			Active:        st.IsActive(),
@@ -351,7 +351,7 @@ type StateGroups struct {
 }
 
 func (s *Schedule) MarshalGroups(T miniprofiler.Timer, filter string) (*StateGroups, error) {
-	var silenced map[models.AlertKey]models.Silence
+	var silenced SilenceTester
 	T.Step("Silenced", func(miniprofiler.Timer) {
 		silenced = s.Silenced()
 	})

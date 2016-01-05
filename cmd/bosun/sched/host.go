@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"bosun.org/metadata"
-	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
 )
@@ -607,14 +606,14 @@ func statusString(val, goodVal int64, goodName, badName string) string {
 	return badName
 }
 
-func processHostIncidents(host *HostData, states States, silences map[models.AlertKey]models.Silence) {
+func processHostIncidents(host *HostData, states States, silences SilenceTester) {
 	for ak, state := range states {
 		if stateHost, ok := state.AlertKey.Group()["host"]; !ok {
 			continue
 		} else if stateHost != host.Name {
 			continue
 		}
-		_, silenced := silences[ak]
+		silenced := silences(ak)
 		is := IncidentStatus{
 			IncidentID:         state.Id,
 			Active:             state.IsActive(),
@@ -622,7 +621,7 @@ func processHostIncidents(host *HostData, states States, silences map[models.Ale
 			Status:             state.CurrentStatus,
 			StatusTime:         state.Last().Time.Unix(),
 			Subject:            state.Subject,
-			Silenced:           silenced,
+			Silenced:           silenced != nil,
 			LastAbnormalStatus: state.LastAbnormalStatus,
 			LastAbnormalTime:   state.LastAbnormalTime,
 			NeedsAck:           state.NeedAck,

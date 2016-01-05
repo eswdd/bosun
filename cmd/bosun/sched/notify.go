@@ -45,7 +45,7 @@ func (s *Schedule) CheckNotifications() time.Duration {
 	notifications := s.Notifications
 	s.Notifications = nil
 	for ak, ns := range notifications {
-		if _, present := silenced[ak]; present {
+		if si := silenced(ak); si != nil {
 			slog.Infoln("silencing", ak)
 			continue
 		}
@@ -92,7 +92,7 @@ func (s *Schedule) CheckNotifications() time.Duration {
 	return timeout
 }
 
-func (s *Schedule) sendNotifications(silenced map[models.AlertKey]models.Silence) {
+func (s *Schedule) sendNotifications(silenced SilenceTester) {
 	if s.Conf.Quiet {
 		slog.Infoln("quiet mode prevented", len(s.pendingNotifications), "notifications")
 		return
@@ -100,7 +100,7 @@ func (s *Schedule) sendNotifications(silenced map[models.AlertKey]models.Silence
 	for n, states := range s.pendingNotifications {
 		for _, st := range states {
 			ak := st.AlertKey
-			_, silenced := silenced[ak]
+			silenced := silenced(ak) != nil
 			if st.CurrentStatus == models.StUnknown {
 				if silenced {
 					slog.Infoln("silencing unknown", ak)

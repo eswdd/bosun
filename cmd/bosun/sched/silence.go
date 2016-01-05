@@ -9,33 +9,31 @@ import (
 	"bosun.org/slog"
 )
 
-// Silenced returns all currently silenced AlertKeys and the time they will be
-// unsilenced.
-func (s *Schedule) Silenced() map[models.AlertKey]models.Silence {
-	aks := make(map[models.AlertKey]models.Silence)
+type SilenceTester func(models.AlertKey) *models.Silence
 
+// Silenced returns a function that will determine if the given alert key is silenced at the current time.
+// A function is returned to avoid needing to enumerate all alert keys unneccesarily.
+func (s *Schedule) Silenced() SilenceTester {
 	now := time.Now()
 	silences, err := s.DataAccess.Silence().GetActiveSilences()
 	if err != nil {
 		slog.Error("Error fetching silences.", err)
 		return nil
 	}
-	for _, si := range silences {
-		if !si.ActiveAt(now) {
-			continue
+	return func(ak models.AlertKey) *models.Silence {
+		var lastEnding *models.Silence
+		for _, si := range silences {
+			if !si.ActiveAt(now) {
+				continue
+			}
+			if si.Silenced(now, ak.Name(), ak.Group()) {
+				if lastEnding == nil || lastEnding.End.Before(si.End) {
+					lastEnding = si
+				}
+			}
 		}
-		s.Lock("Silence")
-		//TODO:
-		//		for ak := range s.status {
-		//			if si.Silenced(now, ak.Name(), ak.Group()) {
-		//				if aks[ak].End.Before(si.End) {
-		//					aks[ak] = *si
-		//				}
-		//			}
-		//		}
-		s.Unlock()
+		return lastEnding
 	}
-	return aks
 }
 
 func (s *Schedule) AddSilence(start, end time.Time, alert, tagList string, forget, confirm bool, edit, user, message string) (map[models.AlertKey]bool, error) {

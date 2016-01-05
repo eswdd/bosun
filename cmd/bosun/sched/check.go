@@ -100,7 +100,7 @@ func (s *Schedule) RunHistory(r *RunHistory) {
 }
 
 // RunHistory for a single alert key. Returns true if notifications were altered.
-func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced map[models.AlertKey]models.Silence) (checkNotify bool, err error) {
+func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.Event, silenced SilenceTester) (checkNotify bool, err error) {
 	event.Time = r.Start
 	data := s.DataAccess.State()
 	err = data.TouchAlertKey(ak, time.Now())
@@ -185,11 +185,12 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	}
 
 	notifyCurrent := func() {
+		si := silenced(ak)
 		//Auto close ignoreUnknowns for new incident.
 		if a.IgnoreUnknown && event.Status == models.StUnknown {
 			incident.Open = false
 			return
-		} else if silenced[ak].Forget && event.Status == models.StUnknown {
+		} else if si != nil && si.Forget && event.Status == models.StUnknown {
 			incident.Open = false
 			return
 		}
@@ -214,7 +215,7 @@ func (s *Schedule) runHistory(r *RunHistory, ak models.AlertKey, event *models.E
 	}
 
 	// finally close an open alert with silence once it goes back to normal.
-	if _, ok := silenced[ak]; ok && event.Status == models.StNormal {
+	if si := silenced(ak); si != nil && event.Status == models.StNormal {
 		go func(ak models.AlertKey) {
 			slog.Infof("auto close %s because was silenced", ak)
 			err := s.Action("bosun", "Auto close because was silenced.", models.ActionClose, ak)
