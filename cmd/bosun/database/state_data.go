@@ -190,7 +190,7 @@ func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
 				return err
 			}
 			s.Id = id
-			// add to list for incident
+			// add to list for alert key
 			_, err = conn.Do("LPUSH", incidentsForAlertKeyKey(s.AlertKey), s.Id)
 			if err != nil {
 				return err

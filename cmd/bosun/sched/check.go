@@ -584,13 +584,8 @@ Loop:
 			}
 		}
 		var n float64
-		switch v := r.Value.(type) {
-		case expr.Number:
-			n = float64(v)
-		case expr.Scalar:
-			n = float64(v)
-		default:
-			err = fmt.Errorf("expected number or scalar")
+		n, err = valueToFloat(r.Value)
+		if err != nil {
 			return
 		}
 		event := rh.Events[ak]
@@ -623,4 +618,17 @@ Loop:
 		}
 	}
 	return
+}
+
+func valueToFloat(val expr.Value) (float64, error) {
+	var n float64
+	switch v := val.(type) {
+	case expr.Number:
+		n = float64(v)
+	case expr.Scalar:
+		n = float64(v)
+	default:
+		return 0, fmt.Errorf("expected number or scalar")
+	}
+	return n, nil
 }

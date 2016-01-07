@@ -27,8 +27,7 @@ type IncidentState struct {
 
 	NeedAck bool
 	Open    bool
-	// TODO: Frogotten
-	Forgotten   bool
+
 	Unevaluated bool
 
 	CurrentStatus Status

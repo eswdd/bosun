@@ -221,7 +221,7 @@ func TestDependency_OtherAlert_UnknownChain(t *testing.T) {
 			t.Fatal(err)
 		}
 		if inc == nil {
-			t.Fatal("No incident present for %s", ak)
+			t.Fatalf("No incident present for %s", ak)
 		}
 		if inc.Unevaluated != expec {
 			t.Errorf("unevaluated wrong for %s. Should be %s", ak, expec)

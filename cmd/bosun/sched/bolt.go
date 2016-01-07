@@ -15,6 +15,7 @@ import (
 	"bosun.org/_third_party/github.com/boltdb/bolt"
 	"bosun.org/cmd/bosun/conf"
 	"bosun.org/cmd/bosun/database"
+	"bosun.org/cmd/bosun/expr"
 	"bosun.org/collect"
 	"bosun.org/metadata"
 	"bosun.org/models"
@@ -274,6 +275,9 @@ func migrateOldDataToRedis(db *bolt.DB, data database.DataAccess) error {
 	if err := migrateSilence(db, data); err != nil {
 		return err
 	}
+	if err := migrateState(db, data); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -427,6 +431,113 @@ func migrateSilence(db *bolt.DB, data database.DataAccess) error {
 	return nil
 }
 
+func migrateState(db *bolt.DB, data database.DataAccess) error {
+	//redefine the structs as they were when we gob encoded them
+	type Result struct {
+		*expr.Result
+		Expr string
+	}
+	mResult := func(r *Result) *models.Result {
+		v, _ := valueToFloat(r.Result.Value)
+		return &models.Result{
+			Computations: r.Result.Computations,
+			Value:        v,
+			Expr:         r.Expr,
+		}
+	}
+	type Event struct {
+		Warn, Crit  *Result
+		Status      models.Status
+		Time        time.Time
+		Unevaluated bool
+		IncidentId  uint64
+	}
+	type State struct {
+		*Result
+		History      []Event
+		Actions      []models.Action
+		Touched      time.Time
+		Alert        string
+		Tags         string
+		Group        opentsdb.TagSet
+		Subject      string
+		Body         string
+		EmailBody    []byte
+		EmailSubject []byte
+		Attachments  []*models.Attachment
+		NeedAck      bool
+		Open         bool
+		Forgotten    bool
+		Unevaluated  bool
+		LastLogTime  time.Time
+	}
+	type OldStates map[models.AlertKey]*State
+	slog.Info("migrating state")
+	states := OldStates{}
+	if err := decode(db, "status", &states); err != nil {
+		return err
+	}
+	for ak, state := range states {
+		if len(state.History) == 0 {
+			continue
+		}
+		var thisId uint64
+		events := []Event{}
+		addIncident := func() {
+			if thisId == 0 || len(events) == 0 {
+				return
+			}
+			incident := NewIncident(ak)
+			incident.Expr = state.Expr
+			incident.NeedAck = state.NeedAck
+			incident.Open = state.Open
+			incident.Result = mResult(state.Result)
+			incident.Unevaluated = state.Unevaluated
+			incident.Start = events[0].Time
+			incident.Id = int64(thisId)
+			for _, ev := range events {
+				incident.CurrentStatus = ev.Status
+				mEvent := models.Event{
+					Crit:        mResult(ev.Crit),
+					Status:      ev.Status,
+					Time:        ev.Time,
+					Unevaluated: ev.Unevaluated,
+					Warn:        mResult(ev.Warn),
+				}
+				incident.Events = append(incident.Events, mEvent)
+				if ev.Status > incident.WorstStatus {
+					incident.WorstStatus = ev.Status
+				}
+				if ev.Status > models.StNormal {
+					incident.LastAbnormalStatus = ev.Status
+					incident.LastAbnormalTime = ev.Time.UTC().Unix()
+				}
+			}
+			for _, ac := range state.Actions {
+				if ac.Time.Before(incident.Start) {
+					continue
+				}
+				incident.Actions = append(incident.Actions, ac)
+				if ac.Time.After(incident.Events[len(incident.Events)-1].Time) && ac.Type == models.ActionClose {
+					incident.End = &ac.Time
+					break
+				}
+			}
+			//ADD incident
+		}
+		for _, e := range state.History {
+			if e.IncidentId != thisId {
+				addIncident()
+				thisId = e.IncidentId
+				events = []Event{e}
+			} else {
+				events = append(events, e)
+			}
+		}
+		addIncident()
+	}
+	return nil
+}
 func isMigrated(db *bolt.DB, name string) (bool, error) {
 	found := false
 	err := db.View(func(tx *bolt.Tx) error {
