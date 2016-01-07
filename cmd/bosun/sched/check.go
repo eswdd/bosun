@@ -45,6 +45,7 @@ func NewIncident(ak models.AlertKey) *models.IncidentState {
 	s.AlertKey = ak
 	s.Alert = ak.Name()
 	s.Tags = ak.Group().Tags()
+	s.Result = &models.Result{}
 	return s
 }
 
@@ -595,7 +596,7 @@ Loop:
 		}
 		result := &models.Result{
 			Computations: r.Computations,
-			Value:        n,
+			Value:        models.Float(n),
 			Expr:         e.String(),
 		}
 		switch checkStatus {

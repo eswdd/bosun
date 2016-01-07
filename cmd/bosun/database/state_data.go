@@ -51,6 +51,7 @@ type StateDataAccess interface {
 	GetAllOpenIncidents() ([]*models.IncidentState, error)
 	GetIncidentState(incidentId int64) (*models.IncidentState, error)
 	UpdateIncidentState(s *models.IncidentState) error
+	ImportIncidentState(s *models.IncidentState) error
 
 	Forget(ak models.AlertKey) error
 	GetUnknownAndUnevalAlertKeys(alert string) ([]models.AlertKey, []models.AlertKey, error)
@@ -179,6 +180,14 @@ func (d *dataAccess) GetIncidentState(incidentId int64) (*models.IncidentState, 
 }
 
 func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
+	return d.save(s, false)
+}
+
+func (d *dataAccess) ImportIncidentState(s *models.IncidentState) error {
+	return d.save(s, true)
+}
+
+func (d *dataAccess) save(s *models.IncidentState, isImport bool) error {
 	defer collect.StartTimer("redis", opentsdb.TagSet{"op": "UpdateIncident"})()
 	conn := d.GetConnection()
 	defer conn.Close()
@@ -191,8 +200,22 @@ func (d *dataAccess) UpdateIncidentState(s *models.IncidentState) error {
 			}
 			s.Id = id
 			// add to list for alert key
-			_, err = conn.Do("LPUSH", incidentsForAlertKeyKey(s.AlertKey), s.Id)
+			if _, err = conn.Do("LPUSH", incidentsForAlertKeyKey(s.AlertKey), s.Id); err != nil {
+				return err
+			}
+		} else if isImport {
+			max, err := redis.Int64(conn.Do("GET", "maxIncidentId"))
 			if err != nil {
+				max = 0
+			}
+			if max < s.Id {
+				if _, err = conn.Do("SET", "maxIncidentId", s.Id); err != nil {
+					fmt.Println("B")
+					return err
+				}
+			}
+			// add to list for alert key
+			if _, err = conn.Do("LPUSH", incidentsForAlertKeyKey(s.AlertKey), s.Id); err != nil {
 				return err
 			}
 		}

@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"math"
 	"time"
 )
 
@@ -55,9 +56,30 @@ type Event struct {
 	Unevaluated bool
 }
 
+// custom float type to support json marshalling of NaN
+type Float float64
+
+func (m Float) MarshalJSON() ([]byte, error) {
+	if math.IsNaN(float64(m)) {
+		return []byte("null"), nil
+	}
+	return json.Marshal(float64(m))
+}
+
+func (m *Float) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		*m = Float(math.NaN())
+		return nil
+	}
+	var f float64
+	err := json.Unmarshal(b, &f)
+	*m = Float(f)
+	return err
+}
+
 type Result struct {
 	Computations `json:",omitempty"`
-	Value        float64
+	Value        Float
 	Expr         string
 }
 

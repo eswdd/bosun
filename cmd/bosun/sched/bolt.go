@@ -197,7 +197,9 @@ func (s *Schedule) RestoreState() error {
 	//			s.AddNotification(ak, n, t)
 	//		}
 	//	}
-	migrateOldDataToRedis(db, s.DataAccess)
+	if err := migrateOldDataToRedis(db, s.DataAccess); err != nil {
+		return err
+	}
 	// delete metrictags if they exist.
 	deleteKey(s.db, "metrictags")
 	slog.Infoln("RestoreState done in", time.Since(start))
@@ -432,16 +434,26 @@ func migrateSilence(db *bolt.DB, data database.DataAccess) error {
 }
 
 func migrateState(db *bolt.DB, data database.DataAccess) error {
+	migrated, err := isMigrated(db, "state")
+	if err != nil {
+		return err
+	}
+	if migrated {
+		return nil
+	}
 	//redefine the structs as they were when we gob encoded them
 	type Result struct {
 		*expr.Result
 		Expr string
 	}
 	mResult := func(r *Result) *models.Result {
+		if r == nil || r.Result == nil {
+			return &models.Result{}
+		}
 		v, _ := valueToFloat(r.Result.Value)
 		return &models.Result{
 			Computations: r.Result.Computations,
-			Value:        v,
+			Value:        models.Float(v),
 			Expr:         r.Expr,
 		}
 	}
@@ -483,12 +495,13 @@ func migrateState(db *bolt.DB, data database.DataAccess) error {
 		}
 		var thisId uint64
 		events := []Event{}
-		addIncident := func() {
-			if thisId == 0 || len(events) == 0 {
-				return
+		addIncident := func() error {
+			if thisId == 0 || len(events) == 0 || state == nil {
+				return nil
 			}
 			incident := NewIncident(ak)
 			incident.Expr = state.Expr
+
 			incident.NeedAck = state.NeedAck
 			incident.Open = state.Open
 			incident.Result = mResult(state.Result)
@@ -523,18 +536,25 @@ func migrateState(db *bolt.DB, data database.DataAccess) error {
 					break
 				}
 			}
-			//ADD incident
+			if err := data.State().ImportIncidentState(incident); err != nil {
+				return err
+			}
+			return nil
 		}
 		for _, e := range state.History {
 			if e.IncidentId != thisId {
-				addIncident()
+				if err := addIncident(); err != nil {
+					return err
+				}
 				thisId = e.IncidentId
 				events = []Event{e}
 			} else {
 				events = append(events, e)
 			}
 		}
-		addIncident()
+		if err := addIncident(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
